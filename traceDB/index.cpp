@@ -1,0 +1,149 @@
+#include "index.h"
+#include <utility>
+#include <stdio.h>
+
+typedef pair<uint16_t,Index *> UIPAIR;
+
+// sipindex, dipindex, sportindex ...
+static void *index_thread_start( void * arg) {
+	UIPAIR* uipair = (UIPAIR *) arg;
+	INDEXCODE code = (INDEXCODE)uipair->first; 
+	Index* index = uipair->second;
+	delete uipair; 
+
+	printf("Thread %d has code %d\n", (int32_t)pthread_self(), (int)code );
+
+	while( 1 ) {
+		pthread_mutex_lock( & (index->queueLock) );
+
+		while( !(code & (index->readCode ) )) {
+			pthread_cond_wait( &(index->fullCond), &(index->queueLock));
+		}
+
+#ifdef DEBUG
+		printf("Thread %d has code %d readCode = %u\n", pthread_self(), code, index->readCode );
+#endif
+		(index->readCode) ^= code;
+		pthread_mutex_unlock( &(index->queueLock) );
+		index->addPkt( code );
+#ifdef DEBUG
+		printf("Thread %d whose code is %d finished reading, readCode = %u\n", pthread_self(), code, index->readCode );
+#endif
+		if( index->readCode == 0 ) pthread_cond_signal( &(index->emptyCond) );
+	}
+}
+
+Index::Index( uint16_t flag ): indexFlag(flag) {
+	sipIndex = dipIndex = NULL;
+	sportIndex = dportIndex = NULL;
+	pthread_mutex_init( &queueLock, NULL);
+	pthread_cond_init( &emptyCond, NULL );
+	pthread_cond_init( &fullCond, NULL );
+	readCode = 0;
+
+	if( flag & SRCIP ) {
+		sipIndex = new BTree<uint32_t,uint32_t>();
+		pthread_t	tid;
+		// this memory should be delete in function index_thread_start
+		// why we did it in this way because the local stack memory may be not
+		// available or correct when the created thread access
+		UIPAIR 	*uipair = new UIPAIR(SRCIP,this);
+		int err = pthread_create( &tid, NULL, index_thread_start, (void *)uipair);
+		if( err ) {
+			fprintf(stderr,"Cannot create thread in file %s, function %s, MSG:%s\n",__FILE__,__func__,strerror(err));
+		} else {
+			threadVec.push_back( tid );
+		}
+	}
+
+	if( flag & DSTIP ) {
+		dipIndex = new BTree<uint32_t,uint32_t>();
+		pthread_t	tid;
+		// this memory should be delete in function index_thread_start
+		UIPAIR 	*uipair = new UIPAIR(DSTIP,this);
+		int err = pthread_create( &tid, NULL, index_thread_start, (void *)uipair );
+		if( err ) {
+			fprintf(stderr,"Cannot create thread in file %s, function %s, MSG:%s\n",__FILE__,__func__,strerror(err));
+		}else {
+			threadVec.push_back( tid );
+		}
+	}
+
+	if( flag & SPORT ) {
+		sportIndex = new BTree<uint16_t,uint32_t>();
+		pthread_t	tid;
+		// this memory should be delete in function index_thread_start
+		UIPAIR 	*uipair = new UIPAIR(SPORT,this);
+		int err = pthread_create( &tid, NULL, index_thread_start, (void *)uipair );
+		if( err ) {
+			fprintf(stderr,"Cannot create thread in file %s, function %s, MSG:%s\n",__FILE__,__func__,strerror(err));
+		} else {
+			threadVec.push_back( tid );
+		}
+	}
+
+	if( flag & DPORT ) {
+		dportIndex = new BTree<uint16_t,uint32_t>();
+		pthread_t	tid;
+		// this memory should be delete in function index_thread_start
+		UIPAIR 	*uipair = new UIPAIR(DPORT,this);
+		int err = pthread_create( &tid, NULL, index_thread_start, (void *)uipair);
+		if( err ) {
+			fprintf(stderr,"Cannot create thread in file %s, function %s, MSG:%s\n",__FILE__,__func__,strerror(err));
+		} else {
+			threadVec.push_back( tid );
+		}
+	}
+}
+
+Index::~Index() {
+	pthread_cond_destroy( &emptyCond );
+	pthread_cond_destroy( &fullCond );
+	pthread_mutex_destroy( &queueLock );
+	
+	for( int i = 0 ; i < threadVec.size(); ++i ) {
+		pthread_cancel( threadVec[i] );
+	}
+	if( sipIndex ) delete sipIndex;
+	if( dipIndex ) delete dipIndex;
+	if( sportIndex ) delete sportIndex;
+	if( dportIndex ) delete dportIndex;
+}
+
+void Index::addPkt(INDEXCODE code) {
+	Ipv4Record* cur = NULL;
+	// cur->pktLen represent the start position in file of this flow-packets
+	switch( code ) {
+		case SRCIP: {
+			for( int i = 0; i < linkNodePool.size(); ++i ) {
+				cur = (Ipv4Record*)linkNodePool.get_resource(i);
+				sipIndex->addItem( cur->get_srcip(), cur->get_file_offset() );
+			}
+			break;
+		}
+		case DSTIP: {
+			for( int i = 0; i < linkNodePool.size();++i ) {
+				cur = (Ipv4Record*)linkNodePool.get_resource(i);
+				dipIndex->addItem( cur->get_dstip(), cur->get_file_offset() );
+			}
+			break;
+		}
+		case SPORT: {
+			for( int i = 0 ; i < linkNodePool.size(); ++i) {
+				cur = (Ipv4Record*)linkNodePool.get_resource(i);
+				sportIndex->addItem( cur->get_sport(), cur->get_file_offset() );
+			}
+			break;
+		}
+		case DPORT: {
+			for( int i = 0 ; i < linkNodePool.size(); ++i) {
+				cur = (Ipv4Record*)linkNodePool.get_resource(i);
+				sportIndex->addItem( cur->get_sport(), cur->get_file_offset() );
+			}
+			break;
+		}
+		default:
+			fprintf(stderr, "Error Code in file %s function %s\n", __FILE__,__func__);
+	}
+}
+

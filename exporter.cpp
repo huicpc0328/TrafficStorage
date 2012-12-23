@@ -1,8 +1,14 @@
 #include "exporter.h"
+#include "fileManager.h"
+#include <sstream>
 
 #ifdef DEBUG
 #include <stdio.h>
 #endif
+
+using std::stringstream;
+
+const string DATA_FILE_SUFFIX=".dat";
 
 static void * scan_thread_start( void *arg ) {
 	int state = PTHREAD_CANCEL_DEFERRED, oldstate ;
@@ -13,6 +19,16 @@ static void * scan_thread_start( void *arg ) {
 void Exporter::scan_hash_table() {
 	
 	printf("Scan Thread %d has started!\n", (uint32_t)pthread_self());
+	uint16_t fileID = FileManager::apply_file_ID(); 
+	stringstream stream;
+	string dir = FileManager::get_directory_name(), fileName;
+	stream<<dir<<fileID<<DATA_FILE_SUFFIX;
+	stream>>fileName;
+	FileWriter*	fileWriter = new FileWriter(fileName );
+	if( !fileWriter ) {
+		fprintf(stderr, "cannot create FileWriter\n in file %s, line %d\n",__FILE__,__LINE__);
+		pthread_exit(0);
+	} 
 
 	while( 1 ) {
 		pthread_mutex_lock( &(index->queueLock));
@@ -20,26 +36,46 @@ void Exporter::scan_hash_table() {
 			pthread_cond_wait( &(index->emptyCond), &(index->queueLock) );
 		}
 
-		int size = index->linkNodePool.size();
-		for( int i = 0 ; i < size; i++ ) {
-			delete index->linkNodePool.get_free_resource();
+		index->clear_linkNodePool();
+
+		// check file size <= 4G
+		if( file_is_full || this->get_exit_signal() ) {
+			index->write_index_to_file( fileID );
+			fileID = FileManager::apply_file_ID();
+			stream.clear();
+			stream<<dir<<fileID<<DATA_FILE_SUFFIX;
+			stream>>fileName;
+			fileWriter->reset_file(fileName);
 		}
 
 		// check receiving exit signal or not
 		// did this examination comsume much cpu resource ?
 		if( this->get_exit_signal() ) {
 			// export all records in hash table when received exit signal;
-			export_timeout_flows( 0 );
+			export_timeout_flows( fileWriter, 0 );
 			index->readCode = (index->indexFlag);
 			pthread_mutex_unlock( &(index->queueLock) );
 #ifdef DEBUG
 			printf("%d packets need to be export!\n", index->linkNodePool.size());
 #endif
 			pthread_cond_broadcast( &(index->fullCond) );
+			// wait for all index threads to finish their inserting operations.
+			pthread_mutex_lock( &(index->queueLock));
+			while( index->readCode != 0 ) {
+				pthread_cond_wait( &(index->emptyCond), &(index->queueLock) );
+			}
+			index->readCode = index->indexFlag;
+			index->clear_linkNodePool();
+			pthread_mutex_unlock( &(index->queueLock) );
+			index->write_index_to_file( fileID );
+			pthread_cond_broadcast( &(index->fullCond) );
 			this->index->set_exit_signal();	
+			delete fileWriter;
+			printf("thread scan_hash_table exited\n");
 			pthread_exit(0);
 		}
-		export_timeout_flows();
+
+		export_timeout_flows( fileWriter );
 		index->readCode = (index->indexFlag);
 		pthread_mutex_unlock( &(index->queueLock) );
 #ifdef DEBUG
@@ -70,6 +106,8 @@ Exporter::Exporter( const string & name, Collector &c, DBHandle *db ) : collecto
 	// initialization for exit-signal
 	exit_signal = false;
 	pthread_mutex_init( &signal_mutex, NULL );
+
+	file_is_full = false;
 }
 
 
@@ -110,6 +148,7 @@ int	Exporter::push_record( RECORD * rec ) {
 
 	pthread_mutex_lock( &bucket_mutex[ bucketID ] );
 
+	uint16_t	pktLen = rec->get_packet_length();
 	packet_num[ bucketID ].first++;
 	// TODO:thread synchronization
 	if( hash_table[bucketID] == NULL ) {
@@ -131,6 +170,7 @@ int	Exporter::push_record( RECORD * rec ) {
 			if( (*(ptr->data)).equals( rec ) ) {
 				ptr->tail->nextdata = current;
 				ptr->tail = current;
+				ptr->data->inc_file_offset( pktLen );
 				flag = true;
 				break;
 			}
@@ -142,6 +182,7 @@ int	Exporter::push_record( RECORD * rec ) {
 			// if this packet is the first packet of some flow
 			current->tail = current;
 			current->nextlink = tmp;
+			current->data->inc_file_offset( pktLen );
 			hash_table[bucketID] = current;
 
 			assert( current->tail->data != NULL );
@@ -193,11 +234,14 @@ void 	Exporter::export_chain( LinkNode * chain, FileWriter * file_handle ) {
 	while( chain != NULL ) {
 		chain = ptr->nextdata;
 		assert( ptr->data != NULL );
-	
+
+#ifdef	WRITE_PACKETS
 		if( file_handle ) {
 			// write packet to disk
+			fileOffset = file_handle->get_file_size();
 			file_handle->write_file( ptr->data->get_packet_buffer(), ptr->data->get_packet_length() );
 		}
+#endif
 		
 		// the end of this chain
 		if( chain == NULL ) {
@@ -224,13 +268,12 @@ void 	Exporter::export_chain( LinkNode * chain, FileWriter * file_handle ) {
 	//if( sql != "" ) write2db( sql );
 }
 
-void  Exporter::export_timeout_flows(int timeout) {
+void  Exporter::export_timeout_flows(FileWriter* fileWriter, int timeout) {
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
-	FileWriter* filewriter = NULL;
 
 	// scan the hash table to export record and free resource
-	for( int i = 0 ; i < BUCKETSIZE; ++i ) {
+	for( int i = 0 ; i < BUCKETSIZE && !file_is_full; ++i ) {
 		LinkNode *ptr = hash_table[i] , *pre = NULL;
 		int pre_record_num = totalRecordNum;
 
@@ -251,6 +294,12 @@ void  Exporter::export_timeout_flows(int timeout) {
 
 			//if( tv.tv_sec - ptr->tail->data->get_time_second() >= FLOW_TIMEOUT ) {
 			if( tv.tv_sec - ptr->data->get_time_second() >= timeout ) {
+				// current file could store all packets of this flow or not ?
+				if( fileWriter->get_file_size() + ptr->data->get_file_offset() >= MAX_FILE_SIZE ) {
+					file_is_full = true;
+					break;
+				}
+
 				if( ptr == hash_table[i] ) {
 					hash_table[i] = ptr->nextlink;
 				} else {
@@ -259,17 +308,7 @@ void  Exporter::export_timeout_flows(int timeout) {
 				}
 
 				LinkNode *next = ptr->nextlink;
-#ifdef	WRITE_PACKETS
-				if( filewriter == NULL ) {
-					filewriter = new FileWriter( FileWriter::assign_file_name() );
-				} else {
-					if( filewriter->get_packet_num() >= MAX_FILE_PACKETS ) {
-						delete filewriter;
-						filewriter = new FileWriter( FileWriter::assign_file_name());
-					}
-				}
-#endif
-				export_chain( ptr, filewriter );
+				export_chain( ptr, fileWriter );
 				ptr = next;
 			} else {
 				pre = ptr;
@@ -279,11 +318,6 @@ void  Exporter::export_timeout_flows(int timeout) {
 
 		packet_num[i].first -= (pre_record_num-totalRecordNum);
 		pthread_mutex_unlock( &bucket_mutex[i]);
-	}
-
-	if( filewriter != NULL ) {
-		delete filewriter;
-		filewriter = NULL;
 	}
 }
 

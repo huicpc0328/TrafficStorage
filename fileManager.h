@@ -4,7 +4,7 @@
 #
 # Last modified: 2012-9-17 17:43
 #
-# Filename: fileManager.h
+# Filename: FileManager.h
 #
 # Description: 
 #
@@ -14,31 +14,33 @@
 #define _FILEMANAGER_H
 
 #include <string>
+#include <stdint.h>
 
 #define MAX_FILE_NUM 100
 
 using std::string;
 
-class fileManager {
-	string		directory_name;
-	string		file_format;
-	uint16_t	file_num;
+class FileManager {
+	static string	directory_name;
+	static uint16_t	file_num;
 
 	public:
 
-	fileManager(const string& name, const string& format);
+	FileManager();
 
-	~fileManager() {
+	~FileManager() {
 	}
 
 	// return an available file name
-	string apply_file_name();
+	static inline uint16_t apply_file_ID() {
+		file_num %= MAX_FILE_NUM;
+		return file_num++;
+	}
 
-	// return the file name according to its file ID 
-	string	get_file_name(uint16_t id);
-
-
-}
+	static inline string get_directory_name() {
+		return directory_name;
+	}
+};
 
 
 #endif

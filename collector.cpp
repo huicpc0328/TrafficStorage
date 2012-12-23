@@ -126,6 +126,7 @@ void Collector::collect() {
 #endif
 		pthread_mutex_unlock( &pool_resource_mutex );
 
+		/*
 		if( pool.size() < POOL_PACKETS_LOWBOUNDER ) {
 			ipv4_exporter.export_timeout_flows();
 			//ipv6_exporter.export_timeout_flows();
@@ -135,6 +136,7 @@ void Collector::collect() {
 				//ipv6_exporter.export_longer_chains();
 			}
 		}
+		*/
 
 		// TODO: we should signal the module exporter to store packets to hard disk and return the
 		//	memory to receive next packets from device when no available free resource in pool.

@@ -68,6 +68,10 @@ class Index {
 	}
 	
 	void addPkt( INDEXCODE code );
+
+	void clear_linkNodePool() ;
+
+	void write_index_to_file( uint16_t fileID );
 		
 	friend void *index_thread_start( void  *);
 

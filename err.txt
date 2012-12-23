@@ -1,0 +1,26 @@
+Capacity = 1048576
+Thread -2137872640 has code 2
+Thread -2129479936 has code 1
+Scan Thread -2146265344 has started!
+Begin to collect packets!
+This thread will process packets
+Create trace successfully!
+Cannot read packet from trace!
+We will cancel threads of parser!
+canceling threads of parser finished!
+We will cancel threads of exporter!
+856 packets need to be export!
+Thread -2137872640 has code 2 readCode = 3
+Thread -2129479936 has code 1 readCode = 1
+Thread -2129479936 whose code is 1 finished reading, readCode = 0
+Thread -2137872640 whose code is 2 finished reading, readCode = 0
+192 packets need to be export!
+Thread -2129479936 has code 1 readCode = 3
+Thread -2137872640 has code 2 readCode = 2
+canceling threads of exporter finished!
+wait thread -2129479936 to exit!
+Thread -2137872640 whose code is 2 finished reading, readCode = 0
+Thread -2129479936 whose code is 1 finished reading, readCode = 0
+canceling one thread of indexing finished!
+wait thread -2137872640 to exit!
+canceling one thread of indexing finished!

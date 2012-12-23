@@ -77,6 +77,9 @@ private:
 	pthread_mutex_t	signal_mutex;
 	bool			exit_signal;
 
+	// flag of checking file size <= 4G
+	bool			file_is_full;
+
 public:
 	Exporter( const string& _name, Collector &c, DBHandle* db = NULL );
 
@@ -115,7 +118,7 @@ public:
 
 	void 	export_longer_chains();
 
-	void	export_timeout_flows(int timeout=FLOW_TIMEOUT);
+	void	export_timeout_flows(FileWriter* fileWriter,int timeout=FLOW_TIMEOUT);
 
 	void 	scan_hash_table();
 

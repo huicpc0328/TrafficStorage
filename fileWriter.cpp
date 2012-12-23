@@ -13,6 +13,8 @@
 #include "fileWriter.h"
 #include <cstdio>
 #include <assert.h>
+#include <string.h>
+#include <errno.h>
 
 FileWriter::FileWriter(const string & name) {
 		file_name = name;
@@ -55,7 +57,10 @@ int FileWriter::write_file( void * addr, size_t size) {
 		return -1;	
 	}
 
-	fwrite( addr, size, 1, file_handle );
+	if( 1 != fwrite( addr, size, 1, file_handle ) ) {
+		fprintf( stderr, "something wrong at fwrite, in file %s line %d MSG:%s\n",__FILE__,__LINE__,strerror(errno) );
+		return -1;
+	}
 	file_size += size;
 	return 0;
 }

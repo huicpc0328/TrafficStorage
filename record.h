@@ -32,6 +32,7 @@ public:
 	Record( PACKET* pkt ): packet( pkt ) {
 		assert( pkt );
 		tv = trace_get_timeval( packet );
+		file_offset = 0 ;
 	}
 
 	virtual ~Record() {}
@@ -47,6 +48,10 @@ public:
 
 	inline	void set_file_offset(uint32_t offset ) {
 		file_offset = offset;
+	}
+
+	inline  void inc_file_offset( uint32_t size ) {
+		file_offset += size;
 	}
 
 	inline uint32_t get_file_offset() {

@@ -213,7 +213,7 @@ class BTree {
 			}
 
 #ifndef USE_FILEIO
-			int  fileHandle = open( fileName, O_CREAT | O_WRONLY , 777);
+			int  fileHandle = open( fileName, O_CREAT | O_WRONLY , S_IWRXU );
 			if( fileHandle < 0 ) {
 				fprintf( stderr, "Open file %s failed at file %s, line %d\n", fileName, __FILE__,__LINE__);
 				return -1;

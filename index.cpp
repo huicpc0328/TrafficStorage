@@ -1,10 +1,13 @@
 #include "index.h"
+#include "fileManager.h"
 #include <utility>
 #include <stdio.h>
 
 #define DEBUG
 
 typedef pair<uint16_t,Index *> UIPAIR;
+
+const char * INDEX_FILE_SUFFIX = ".idx";
 
 // sipindex, dipindex, sportindex ...
 static void *index_thread_start( void * arg) {
@@ -24,6 +27,7 @@ static void *index_thread_start( void * arg) {
 
 		while( !(code & (index->readCode ) )) {
 			pthread_cond_wait( &(index->fullCond), &(index->queueLock));
+			printf("thread whose code is %d received a signal!\n", code );
 		}
 
 #ifdef DEBUG
@@ -35,12 +39,10 @@ static void *index_thread_start( void * arg) {
 #ifdef DEBUG
 		printf("Thread %d whose code is %d finished reading, readCode = %u\n", pthread_self(), code, index->readCode );
 #endif
-		if( index->readCode == 0 ) pthread_cond_signal( &(index->emptyCond) );
+		pthread_cond_signal( &(index->emptyCond) );
 
 		// check exit-signal;
 		if( index->get_exit_signal() ) {
-			// TODO:write the index data to file
-		
 			pthread_exit(0);
 		}
 
@@ -179,3 +181,45 @@ void Index::addPkt(INDEXCODE code) {
 	}
 }
 
+void Index::write_index_to_file( uint16_t fileID ) {
+	char fileName[128];
+
+	if( indexFlag & SRCIP ) {
+		snprintf( fileName, 128, "%ssip-%d%s",\
+				FileManager::get_directory_name().c_str(),fileID,INDEX_FILE_SUFFIX );	
+		sipIndex->write2file( fileName );
+		delete sipIndex;
+		sipIndex = new BTree<uint32_t,uint32_t>();
+	}
+
+	if( indexFlag & DSTIP ) {
+		snprintf( fileName, 128, "%sdip-%d%s",\
+				FileManager::get_directory_name().c_str(),fileID,INDEX_FILE_SUFFIX );	
+		dipIndex->write2file( fileName );
+		delete dipIndex;
+		dipIndex = new BTree<uint32_t,uint32_t>();
+	}
+
+	if( indexFlag & SPORT ) {
+		snprintf( fileName, 128, "%ssport-%d%s",\
+				FileManager::get_directory_name().c_str(),fileID,INDEX_FILE_SUFFIX );	
+		sportIndex->write2file( fileName );
+		delete sportIndex;
+		sportIndex = new BTree<uint16_t,uint32_t>();
+	}
+
+	if( indexFlag & DPORT ) {
+		snprintf( fileName, 128, "%sdport-%d%s",\
+				FileManager::get_directory_name().c_str(),fileID,INDEX_FILE_SUFFIX );	
+		dportIndex->write2file( fileName );
+		delete dportIndex;
+		dportIndex = new BTree<uint16_t,uint32_t>();
+	}
+}
+
+void Index::clear_linkNodePool() {
+		int size = linkNodePool.size();
+		for( int i = 0 ; i < size; i++ ) {
+			delete linkNodePool.get_free_resource();
+		}
+}

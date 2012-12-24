@@ -6,8 +6,8 @@
 using namespace std;
 
 //const char *uri = "int:wlan0";
-//const char *uri = "pcap:/home/hth/desktop/1.pcap";
-const char *uri = "pcap:/host/trace/hth3.pcap";
+const char *uri = "pcap:/home/hth/desktop/1.pcap";
+//const char *uri = "pcap:/host/trace/hth3.pcap";
 
 Collector *collector = new Collector(uri);
 Exporter ipv4_exporter("ipv4", *collector, NULL );

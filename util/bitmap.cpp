@@ -25,12 +25,6 @@ void Bitmap::merge( const Bitmap& bm ) {
 	}
 }
 
-void Bitmap::merge( Bitmap & bm )  {
-	for( int i = 0 ; i < bm.elemSize && i < elemSize; ++i ) {
-		byteArray[ i ] |= bm.byteArray[i];
-	}
-}
-
 void Bitmap::copy( Bitmap & bm ) {
 	for( int i = 0 ; i < bm.elemSize && i < elemSize; ++i ) {
 		byteArray[i] = bm.byteArray[i];

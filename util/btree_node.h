@@ -304,7 +304,12 @@ class LeafNode: BTreeNode<KEY> {
 			int pos = findPosition( key );
 
 			// key has existed in this leaf node 
-			if( pos >= 0 && BTreeNode<KEY>::keyArray[pos] == key ) {
+			if( pos >= 0 && pos < this->elemCount && BTreeNode<KEY>::keyArray[pos] == key ) {
+				if( resultArray[pos] == NULL ) {
+					printf("key = %u value = %u, pos = %d\n",key,value,pos);
+					printf("ERROR in here with node pointer = %p\n",this);
+				}
+				assert( resultArray[pos] != NULL );
 				resultArray[pos]->addElement( value );
 				return 0;
 			}
@@ -325,12 +330,12 @@ class LeafNode: BTreeNode<KEY> {
 				}
 			}
 
-			BTreeNode<KEY>::keyArray[pos] = key;
 			resultArray[pos] = new LinkList<VALUE>();
 			if( !resultArray[pos] ) {
 				fprintf( stderr, "cannot alloc memory for linklist in file %s, at line %d\n", __FILE__, __LINE__ );
 				return -1;
 			}
+			BTreeNode<KEY>::keyArray[pos] = key;
 			resultArray[pos]->clear();
 			resultArray[pos]->addElement(value);
 			++BTreeNode<KEY>::elemCount;
@@ -341,7 +346,7 @@ class LeafNode: BTreeNode<KEY> {
 		void copyItems( BTreeNode<KEY>* ptr, int32_t start, int32_t n ) {
 			BTreeNode<KEY>::copyItems( ptr, start, n );
 
-			for( int i = 0 ; i < n && i < BTreeNode<KEY>::maxNumber; ++i ) {
+			for( int i = 0 ; i < n && start+i < BTreeNode<KEY>::maxNumber; ++i ) {
 				resultArray[i] = ((LeafNode<KEY,VALUE>*)ptr)->getResult( start+i );
 			}
 		}
@@ -349,6 +354,7 @@ class LeafNode: BTreeNode<KEY> {
 
 		LinkList<VALUE>* getResult( int32_t idx ) {
 			assert( idx >= 0 && idx <= BTreeNode<KEY>::maxNumber );
+			assert( resultArray[idx] != NULL );
 			return resultArray[idx];
 		}
 

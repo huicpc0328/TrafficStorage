@@ -56,7 +56,7 @@ void Exporter::scan_hash_table() {
 			index->readCode = (index->indexFlag);
 			pthread_mutex_unlock( &(index->queueLock) );
 #ifdef DEBUG
-			printf("%d packets need to be export!\n", index->linkNodePool.size());
+			printf("EXIT:%d packets need to be export!\n", index->linkNodePool.size());
 #endif
 			pthread_cond_broadcast( &(index->fullCond) );
 			// wait for all index threads to finish their inserting operations.
@@ -66,10 +66,15 @@ void Exporter::scan_hash_table() {
 			}
 			index->readCode = index->indexFlag;
 			index->clear_linkNodePool();
-			pthread_mutex_unlock( &(index->queueLock) );
 			index->write_index_to_file( fileID );
-			pthread_cond_broadcast( &(index->fullCond) );
 			this->index->set_exit_signal();	
+			pthread_mutex_unlock( &(index->queueLock) );
+			/*
+			for( int i = 0 ; i < index->threadVec.size(); ++i ) {
+				pthread_cancel( index->threadVec[i] );
+			}
+			*/
+			pthread_cond_broadcast( &(index->fullCond) );
 			delete fileWriter;
 			printf("thread scan_hash_table exited\n");
 			pthread_exit(0);

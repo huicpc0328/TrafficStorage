@@ -15,9 +15,8 @@ static void *index_thread_start( void * arg) {
 	INDEXCODE code = (INDEXCODE)uipair->first; 
 	Index* index = uipair->second;
 	delete uipair; 
-
 	/*
-	int state = PTHREAD_CANCEL_DEFERRED, oldstate ;
+	int state = PTHREAD_CANCEL_ASYNCHRONOUS, oldstate ;
 	pthread_setcanceltype( state, &oldstate );
 	*/
 	printf("Thread %d has code %d\n", (int32_t)pthread_self(), (int)code );
@@ -27,20 +26,23 @@ static void *index_thread_start( void * arg) {
 
 		while( !(code & (index->readCode ) )) {
 			pthread_cond_wait( &(index->fullCond), &(index->queueLock));
-			printf("thread whose code is %d received a signal!\n", code );
+			printf("thread whose code is %d received a signal, readCode=%d!\n", code,index->readCode );
 		}
 
 #ifdef DEBUG
 		printf("Thread %d has code %d readCode = %u\n", pthread_self(), code, index->readCode );
 #endif
-		(index->readCode) ^= code;
 		pthread_mutex_unlock( &(index->queueLock) );
 		index->addPkt( code );
-#ifdef DEBUG
-		printf("Thread %d whose code is %d finished reading, readCode = %u\n", pthread_self(), code, index->readCode );
-#endif
-		pthread_cond_signal( &(index->emptyCond) );
 
+		pthread_mutex_lock( &(index->queueLock));
+		(index->readCode) ^= code;
+#ifdef DEBUG
+		printf("Thread code %d finished reading, readCode = %u, exit=%d\n", pthread_self(), code, index->readCode,index->get_exit_signal() );
+#endif
+		pthread_mutex_unlock( &(index->queueLock) );
+		if( index->readCode == 0 ) pthread_cond_signal( &(index->emptyCond) );
+		
 		// check exit-signal;
 		if( index->get_exit_signal() ) {
 			pthread_exit(0);

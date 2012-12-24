@@ -33,7 +33,7 @@ Collector::~Collector() {
 	while( 1 ) {
 		pthread_mutex_lock( &pool_resource_mutex );
 		if( pool.size() == pool.capacity() ) break;
-		printf("Pool size = %d capcity = %d\n", pool.size(), pool.capacity());
+		printf("Pool size = %d capcity = %d, pkt-queue size = %d\n", pool.size(), pool.capacity(),pkt_queue.size());
 		pthread_mutex_unlock( &pool_resource_mutex );
 		sleep(3);
 	}
@@ -154,8 +154,11 @@ void Collector::collect() {
 			pthread_mutex_unlock( &packet_queue_mutex );
 		} else {
 			pool.set_resource_free( packet );
+			if( trace_is_err(trace) ) {
+				fprintf(stderr,"something wrong in trace reading\n!");
+			}
 #ifdef DEBUG
-			printf("Cannot read packet from trace!\n");
+			printf("Cannot read packet from trace, total read pkts num = %d!\n", pkt_num);
 #endif
 			break;
 		}

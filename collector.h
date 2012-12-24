@@ -32,7 +32,7 @@ private:
 	TRACE *					trace;      /* collector packets from this trace */
 	std::queue<PACKET *>			pkt_queue;	/* store packets read from device that haven't been parsed */
 	ResourcePool<PACKET*,MAX_PACKETS>	pool;		/* memory to store packets and its contents, we should returned
-													the used memory to pool if we store one packet to hard disk*/
+													the used memory to pool when we store one packet to hard disk*/
 	char 							inputURI[128]; /* device name, e.g. int:eth0 */
 
 	pthread_mutex_t						pool_resource_mutex; /* control the operation of ResoucePool */

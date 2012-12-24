@@ -49,6 +49,7 @@ class BTree {
 				Q.push( root );
 				while( !Q.empty() ) {
 					BTreeNode<KEY>* cur = Q.front();
+					//printf("node pointer %p release\n",cur);
 					Q.pop();
 
 					for( int i = 0 ; !cur->isLeafNode() && i < cur->getElemCount(); ++i ) {

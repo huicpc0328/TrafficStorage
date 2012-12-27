@@ -14,6 +14,7 @@
 #define _BTREE_H
 
 #include "btree_node.h"
+#include "../global.h"
 #include <stack>
 #include <utility>
 #include <errno.h>
@@ -49,6 +50,7 @@ class BTree {
 				Q.push( root );
 				while( !Q.empty() ) {
 					BTreeNode<KEY>* cur = Q.front();
+					//printf("node pointer %p release\n",cur);
 					Q.pop();
 
 					for( int i = 0 ; !cur->isLeafNode() && i < cur->getElemCount(); ++i ) {
@@ -208,21 +210,18 @@ class BTree {
 
 		int write2file( const char * fileName ) {
 			if( !root ) {
-				fprintf(stderr, "This is an empty Tree in file %s, at line %d\n",__FILE__,__LINE__);
-				return 0;
+				ERROR_INFO("This is an empty Tree",return 0);
 			}
 
 #ifndef USE_FILEIO
-			int  fileHandle = open( fileName, O_CREAT | O_WRONLY , 777);
+			int  fileHandle = open( fileName, O_CREAT | O_WRONLY , S_IWRXU );
 			if( fileHandle < 0 ) {
-				fprintf( stderr, "Open file %s failed at file %s, line %d\n", fileName, __FILE__,__LINE__);
-				return -1;
+				ERROR_INFO("Open file failed",return -1);
 			}
 #else 
 			FILE *fileHandle = fopen( fileName, "wb");
 			if( !fileHandle ) {
-				fprintf( stderr, "Open file %s failed at file %s, line %d\n", fileName, __FILE__,__LINE__);
-				return -1;
+				ERROR_INFO("Open file failed",return -1);
 			}
 #endif
 			// calculate the offsets of file in advance. 
@@ -263,8 +262,7 @@ class BTree {
 #ifndef USE_FILEIO
 			int fd = open( fileName, O_RDONLY );
 			if( fd < 0 ) {
-				fprintf( stderr, "Open file %s failed at file %s, line %d\n", fileName, __FILE__,__LINE__);
-				return -1;
+				ERROR_INFO("Open file failed",return -1);
 			}
 
 			int8_t  isLeafNode;
@@ -274,8 +272,7 @@ class BTree {
 			queue< BTreeNode<KEY> * >BQ;
 
 			if( read( fd, &isLeafNode, isLeafSize ) != isLeafSize ) {
-				fprintf(stderr,"Read file Error in file %s, at line %d, msg: %s\n",__FILE__,__LINE__, strerror( errno ));
-				goto ERROR;
+				ERROR_INFO("Read file error", goto ERROR);
 			}
 
 			// this tree must be an empty b-tree when we called this function readFromFile 
@@ -295,8 +292,7 @@ class BTree {
 
 				for( int i = 0 ; i < curNode->getElemCount(); ++i ) {
 					if( read( fd, &isLeafNode, isLeafSize ) != isLeafSize ) {
-						fprintf(stderr,"Read file Error in file %s, at line %d, msg: %s\n",__FILE__,__LINE__, strerror( errno ));
-						goto ERROR;
+						ERROR_INFO("Read file error", goto ERROR);
 					}
 					if( isLeafNode ) {
 						newNode = (BTreeNode<KEY>*)new LeafNode<KEY,VALUE>();
@@ -306,8 +302,7 @@ class BTree {
 					nodeCount++;
 
 					if( newNode->readFromFile( fd ) == -1 ) {
-						fprintf( stderr, "Something wrong in readFromFile of file %s, at line %d\n",__FILE__,__LINE__ );
-						goto ERROR;
+						ERROR_INFO("Something wrong in readFromFile", goto ERROR);
 					}
 
 					((InternalNode<KEY>*)curNode)->setChildren( i , newNode );
@@ -318,7 +313,6 @@ class BTree {
 						read( fd, offsetArray, newNode->getElemCount() * sizeof(uint32_t) ) ;
 					}
 				}
-
 			}
 			close( fd );
 			delete offsetArray;
@@ -330,8 +324,7 @@ ERROR:
 #else 
 			FILE * fp = fopen( fileName, "rb");
 			if( !fp ) {
-				fprintf( stderr, "Open file %s failed at file %s, line %d\n", fileName, __FILE__,__LINE__);
-				return -1;
+				ERROR_INFO("open file failed", return -1);
 			}
 
 			int8_t  isLeafNode;
@@ -340,9 +333,8 @@ ERROR:
 			BTreeNode<KEY>* curNode = NULL, *newNode = NULL;
 			queue< BTreeNode<KEY> * >BQ;
 
-			if( fread( &isLeafNode, isLeafSize, 1, fp ) != isLeafSize ) {
-				fprintf(stderr,"Read file Error in file %s, at line %d, msg: %s\n",__FILE__,__LINE__, strerror( errno ));
-				goto ERROR;
+			if( fread( &isLeafNode, isLeafSize, 1, fp ) != 1 ) {
+				ERROR_INFO("Read file error", goto ERROR);
 			}
 			// this tree must be an empty b-tree when we called this function readFromFile 
 			assert( root == NULL );
@@ -369,8 +361,7 @@ ERROR:
 					nodeCount++;
 
 					if( newNode->readFromFile( fp ) == -1 ) {
-						fprintf( stderr, "Something wrong of readFromFile in file %s, at line %d\n",__FILE__,__LINE__ );
-						goto ERROR;
+						ERROR_INFO("Something wrong in readFromFile", goto ERROR);
 					}
 
 					((InternalNode<KEY>*)curNode)->setChildren( i , newNode );
@@ -410,9 +401,8 @@ ERROR:
 			uint32_t*	offsetArray = new uint32_t[ MAX_PER_NODE ];
 
 			while( 1 ) {
-				if( fread( &isLeafNode, isLeafSize, 1, fp ) != isLeafSize ) {
-					fprintf(stderr,"Read file Error in file %s, at line %d, msg: %s\n",__FILE__,__LINE__, strerror( errno ));
-					goto ERROR;
+				if( fread( &isLeafNode, isLeafSize, 1, fp ) != 1 ) {
+					ERROR_INFO("Read file error", goto ERROR);
 				}
 				
 				if( isLeafNode ) {
@@ -432,8 +422,7 @@ ERROR:
 				if( pos == -1 ) goto ERROR;
 
 				if( fseek( fp, offsetArray[pos], SEEK_SET ) == -1 ) {
-					fprintf( stderr, "Seeking file position failed in file %s, funciton %s, line %d\n", __FILE__,__func__,__LINE__);
-					goto ERROR;
+					ERROR_INFO("Seeking file position failed", goto ERROR);
 				}
 			}
 
@@ -457,9 +446,9 @@ ERROR:
 
 				// read next leaf node
 				// If the query key is greater than the max key of this BTree, we will read BTreeNodes until file hanlder go to ending.
-				if( fread( &isLeafNode, isLeafSize, 1, fp ) != isLeafSize ) {
-					if( !feof(fp) ) fprintf(stderr,"Read file Error in file %s, at line %d, msg: %s\n",__FILE__,__LINE__, strerror( errno ));
-					goto ERROR;
+				if( fread( &isLeafNode, isLeafSize, 1, fp ) != 1 ) {
+					fprintf(stderr,"current position of file pointer is %d\n",ftell(fp));
+					ERROR_INFO("Read file error", goto ERROR);
 				}
 				assert( isLeafNode != 0 );
 				nodePtr = (BTreeNode<KEY>*)new LeafNode<KEY,VALUE>();

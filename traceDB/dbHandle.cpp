@@ -5,10 +5,11 @@
  *      Author: hth
  */
 #include "dbHandle.h"
-#include "monetdb/mapi.h"
+//#include "monetdb/mapi.h"
 #include <vector>
 #include <cstdlib>
 
+#if 0
 // returned value: 0 for succeed, -1 for failed.
 int MonetDBHandle::connect_database(){
 	db_handle = mapi_connect(host.c_str(),port,username.c_str(),password.c_str(),"sql",dbname.c_str());
@@ -137,3 +138,4 @@ int MonetDBHandle::readOneRecord( string sql ,JSONNode& row) {
 
 	return 0;
 }
+#endif

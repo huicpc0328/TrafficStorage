@@ -17,7 +17,7 @@
 #include "resourcePool.h"
 #include <queue>
 
-#define MAX_PACKETS	32678
+#define MAX_PACKETS	2*1024*1024
 /* if the number of packets in hash table more than this macro, we should export some packets to hard disk */
 #define		POOL_PACKETS_UPBOUNDER 	MAX_PACKETS*3/4
 /* if the number of packets in hash table less than this macro, we can stop exporting packets to disk. */
@@ -29,11 +29,11 @@ using namespace libtrace;
 
 class Collector {
 private:
-	TRACE *								trace;      /* collector packets from this trace */
-	std::queue<PACKET *>				pkt_queue;	/* store packets read from device that haven't been parsed */
+	TRACE *					trace;      /* collector packets from this trace */
+	std::queue<PACKET *>			pkt_queue;	/* store packets read from device that haven't been parsed */
 	ResourcePool<PACKET*,MAX_PACKETS>	pool;		/* memory to store packets and its contents, we should returned
-													the used memory to pool if we store one packet to hard disk*/
-	char 								inputURI[128]; /* device name, e.g. int:eth0 */
+													the used memory to pool when we store one packet to hard disk*/
+	char 							inputURI[128]; /* device name, e.g. int:eth0 */
 
 	pthread_mutex_t						pool_resource_mutex; /* control the operation of ResoucePool */
 	pthread_mutex_t						packet_queue_mutex;	 /* control the read and writer operation of pkt_queue*/

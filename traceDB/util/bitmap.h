@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include <cstdio>
 #include <assert.h>
+#include "../global.h"
 
 //template<typename Type> class BloomFilter;
 
@@ -28,12 +29,12 @@ class Bitmap {
 		Bitmap( int64_t _bitSize = BITMAP_DEFAULT_SIZE ) :bitSize( _bitSize ) {
 			assert( bitSize > 0 );
 			
-			elemSize = (int32_t)( bitSize >> RIGHT_SHIFT_NUM ) + (( bitSize & BITMASK ) > 0 ? 1 : 0) ;
+			elemSize = (int32_t)( (bitSize+BITMASK) >> RIGHT_SHIFT_NUM ); 
 			byteArray = new int32_t[elemSize];
 			bitSize = elemSize << RIGHT_SHIFT_NUM;
 
 			if( !byteArray ) {
-				fprintf( stderr, "Cannot alloc memory for bitmap In file %s, line %d, function %s\n", __FILE__, __LINE__, __func__ );
+				ERROR_INFO("Cannot alloc memory for bitmap",);
 			}
 		}
 
@@ -43,6 +44,7 @@ class Bitmap {
 		
 		void setBit( int64_t  bitPos )  {
 			assert( bitPos >= 0 && bitPos < bitSize );
+			// for assert will not be effective in release mode 
 			if( bitPos < 0 || bitPos >= bitSize ) {
 				return ;
 			}
@@ -51,12 +53,12 @@ class Bitmap {
 
 		bool getBit( int64_t  bitPos ) const {
 			assert( bitPos >= 0 && bitPos < bitSize );
-
+			// for assert will not be effective in release mode 
 			if( bitPos < 0 || bitPos >= bitSize ) {
 				return false;
 			}
 			int32_t  location = (bitPos & BITMASK );
-			return  ( byteArray[ bitPos >> RIGHT_SHIFT_NUM ] & ( 1<<location ) ) > 0;
+			return  ( byteArray[ bitPos >> RIGHT_SHIFT_NUM ] >> location ) & 1;
 		}
 
 		int32_t getBitSize() const {
@@ -70,8 +72,6 @@ class Bitmap {
 		/* merge the bitmap bm to current bitmap */
 		void merge( const Bitmap& bm ) ;
 		
-		void merge( Bitmap & bm ) ;
-
 		void copy( Bitmap & bm );
 
 		/* dump the bitmap to a memory  byte array */

@@ -44,13 +44,34 @@ class Index {
 	pthread_cond_t				fullCond;
 	int16_t						readCode; // represent which index have read the queue or not
 	
+	// signal for thread exiting
+	pthread_mutex_t				exit_mutex;
+	bool						exit_signal;
+
 	public:
 	
 	Index( uint16_t flag = SRCIP|DSTIP|SPORT|DPORT ) ;
 	
 	~Index();
 
+	inline bool get_exit_signal() {
+		pthread_mutex_lock( &exit_mutex );
+		bool ret = exit_signal;
+		pthread_mutex_unlock( &exit_mutex );
+		return ret;
+	}
+
+	inline void set_exit_signal() {
+		pthread_mutex_lock( &exit_mutex );
+		exit_signal = true;
+		pthread_mutex_unlock( &exit_mutex );
+	}
+	
 	void addPkt( INDEXCODE code );
+
+	void clear_linkNodePool() ;
+
+	void write_index_to_file( uint16_t fileID );
 		
 	friend void *index_thread_start( void  *);
 

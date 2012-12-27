@@ -18,14 +18,7 @@ inline int32_t min( int32_t a, int32_t b ) {
 	return a > b ? b : a ;
 }
 
-
 void Bitmap::merge( const Bitmap& bm ) {
-	for( int i = 0 ; i < bm.elemSize && i < elemSize; ++i ) {
-		byteArray[ i ] |= bm.byteArray[i];
-	}
-}
-
-void Bitmap::merge( Bitmap & bm )  {
 	for( int i = 0 ; i < bm.elemSize && i < elemSize; ++i ) {
 		byteArray[ i ] |= bm.byteArray[i];
 	}
@@ -57,20 +50,15 @@ int Bitmap::dump2file( int fd, int32_t offset ) const {
 	// seek target position that have a distance offset from current position defaultly. 
 	off_t ret = lseek( fd, offset, SEEK_CUR );
 	if( ret == -1 ) {
-		fprintf( stderr, "error msg %s in file %s, func = %s\n", strerror( errno), __FILE__, __func__ );
-		return -1;
+		ERROR_INFO( strerror(errno),return -1);
 	}
 
-	ret = write( fd, (void *)&bitSize, sizeof(bitSize));
-	if( ret == -1 ) {
-		fprintf( stderr, "error msg %s in file %s, func = %s\n", strerror( errno), __FILE__, __func__ );
-		return -1;
+	if( -1 == write( fd, (void *)&bitSize, sizeof(bitSize)) ) {
+		ERROR_INFO( strerror(errno), return -1);
 	}
 
-	ret = write( fd, (void *)&elemSize, sizeof(elemSize));
-	if( ret == -1 ) {
-		fprintf( stderr, "error msg %s in file %s, func = %s\n", strerror( errno), __FILE__, __func__ );
-		return -1;
+	if( -1 == write( fd, (void *)&elemSize, sizeof(elemSize))) {
+		ERROR_INFO( strerror(errno), return -1);
 	}
 
 	char *wp = (char *)byteArray;
@@ -79,8 +67,7 @@ int Bitmap::dump2file( int fd, int32_t offset ) const {
 	while( 1 ) {
 		ret = write( fd, (void *)wp, wsize ); 
 		if( ret == -1 ) {
-			fprintf( stderr, "error msg %s in file %s, func = %s\n", strerror( errno), __FILE__, __func__ );
-			return -1;
+			ERROR_INFO( strerror(errno), return -1);
 		}
 		if( ret >= wsize ) break;
 		wp += ret;
@@ -98,20 +85,15 @@ int Bitmap::readFromFile( int fd, int32_t offset ) {
 	// seek target position that have a distance offset from current position defaultly. 
 	int ret = lseek( fd, offset, SEEK_CUR );
 	if( ret == -1 ) {
-		fprintf( stderr, "error msg %s in file %s, func = %s\n", strerror( errno), __FILE__, __func__ );
-		return -1;
+		ERROR_INFO( strerror(errno), return -1);
 	}
 
-	ret = read( fd, (void *)&bitSize, sizeof(bitSize));
-	if( ret == -1 ) {
-		fprintf( stderr, "error msg %s in file %s, func = %s\n", strerror( errno), __FILE__, __func__ );
-		return -1;
+	if( read( fd, (void *)&bitSize, sizeof(bitSize)) == -1 ) {
+		ERROR_INFO( strerror(errno), return -1);
 	}
 	
-	ret = read( fd, (void *)&elemSize, sizeof(elemSize));
-	if( ret == -1 ) {
-		fprintf( stderr, "error msg %s in file %s, func = %s\n", strerror( errno), __FILE__, __func__ );
-		return -1;
+	if( read( fd, (void *)&elemSize, sizeof(elemSize)) == -1 ) {
+		ERROR_INFO( strerror(errno), return -1);
 	}
 
 	if( !byteArray ) delete[] byteArray;
@@ -123,8 +105,7 @@ int Bitmap::readFromFile( int fd, int32_t offset ) {
 	while(1) {
 		ret = read( fd, (void *)rp, rsize );
 		if( ret == -1 ) {
-			fprintf( stderr, "error msg %s in file %s, func = %s\n", strerror( errno), __FILE__, __func__ );
-			return -1;
+			ERROR_INFO( strerror(errno), return -1);
 		}
 
 		if( ret >= rsize ) break;
@@ -138,8 +119,7 @@ int Bitmap::readFromFile( int fd, int32_t offset ) {
 // file io
 int Bitmap::dump2file( FILE * fp ) const {
 	if( !fp ) {
-		fprintf( stderr, "NULL pointer fp in file %s at line %d\n", __FILE__, __LINE__ );
-		return -1;
+		ERROR_INFO("NULL file pointer fp",return -1);
 	}
 
 	fwrite( &bitSize, sizeof(bitSize), 1, fp );
@@ -151,8 +131,7 @@ int Bitmap::dump2file( FILE * fp ) const {
 
 int Bitmap::readFromFile( FILE * fp ) {
 	if( !fp ) {
-		fprintf( stderr, "NULL pointer fp in file %s at line %d\n", __FILE__, __LINE__ );
-		return -1;
+		ERROR_INFO("NULL file pointer fp",return -1);
 	}
 	
 	fread( &bitSize, sizeof(bitSize), 1, fp );

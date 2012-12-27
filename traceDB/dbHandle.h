@@ -8,7 +8,7 @@
 #ifndef DBHANDLE_H_
 #define DBHANDLE_H_
 
-#include "monetdb/mapi.h"
+//#include "monetdb/mapi.h"
 #include <string>
 #include <inttypes.h>
 #include "include/JsonBox.h"
@@ -41,7 +41,7 @@ public:
 	virtual int	readOneRecord(string sql, JSONNode &) = 0;
 };
 
-
+#if	0
 class MonetDBHandle: DBHandle {
 private:
 	Mapi			db_handle;				/* the handle to connect and process with monet database */
@@ -65,4 +65,5 @@ public:
 	int	readOneRecord(string sql, JSONNode &jsonNode);
 };
 
+#endif
 #endif /* DBHANDLE_H_ */

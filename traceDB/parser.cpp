@@ -6,7 +6,6 @@
 #include "record.h"
 #include "exporter.h"
 
-
 extern 	Exporter ipv4_exporter;
 /*
 extern	Exporter<1024> arp_exporter;
@@ -25,6 +24,8 @@ Parser::~Parser(){
 
 
 void * thread_func( void * ptr) {
+	int state = PTHREAD_CANCEL_DEFERRED, oldstate ;
+	pthread_setcanceltype( state, &oldstate );
 	Parser * parser = ( Parser * )ptr;
 	parser->packet_process();
 }
@@ -47,7 +48,11 @@ void Parser::packet_process() {
 	while( 1 ) {
 		// we don't need to consider thread synchronization here because it have been processed in the function get_packet.
 		packet = collector.get_packet();
-		if( packet == NULL ) continue;
+		if( packet == NULL ) {
+			// we should check the cancel condition here and exit when we receive a cancel signal
+			pthread_testcancel();
+			continue;
+		}
 
 		LINKTYPE linktype;
 		uint32_t remaining;

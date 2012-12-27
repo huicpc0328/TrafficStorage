@@ -15,6 +15,7 @@
 
 #include <vector>
 #include <assert.h>
+#include <cstdio>
 
 template<typename RES, int POOLSIZE>
 class ResourcePool {

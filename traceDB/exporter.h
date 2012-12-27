@@ -20,10 +20,14 @@
 #include "record.h"
 #include "collector.h"
 
-#define 	SCAN_INTERVAL 		5    /* how long to scan hash_table and export packets, unit: second */
-#define		FLOW_TIMEOUT		180     /*  3 minutes */
+#ifdef HASH_PERF
+#include "perfMeasure.h"
+#endif
+
+#define 	SCAN_INTERVAL 		1       /* how long to scan hash_table and export packets, unit: second */
+#define		FLOW_TIMEOUT		10		/*  3 minutes */
 #define		MAX_FILE_PACKETS	1024	/* max packets number per file stored */
-#define		BUCKETSIZE 			1024*1024
+#define		BUCKETSIZE			999983	
 
 typedef Record RECORD;
 
@@ -58,9 +62,11 @@ private:
 	uint32_t		totalRecordNum;  /* total number of records in current exporter buffer */
 	LinkNode *		hash_table[BUCKETSIZE]; /* head pointer of each hash bucket */
 	Collector&		collector;				/* the reference of unique collector */
+	timeval			last_packet_timeval;
 
 #ifdef HASH_PERF
 	int				bucket_size[BUCKETSIZE]; /* the number of different records located at one bucket, size of collision*/
+	PerfMeasure		hash_collision ;
 #endif
 
 	DBHandle*		db_handle;		    	/*  the handle of write record to database */
@@ -72,6 +78,14 @@ private:
 	pthread_t		scanThread;
 
 	Index			*index;
+	
+	// signal for thread exiting
+	pthread_mutex_t	signal_mutex;
+	bool			exit_signal;
+
+	// flag of checking file size <= 4G
+	bool			file_is_full;
+	FileWriter*		fileWriter;
 
 public:
 	Exporter( const string& _name, Collector &c, DBHandle* db = NULL );
@@ -82,6 +96,27 @@ public:
 		return totalRecordNum;
 	}
 
+	inline pthread_t get_scan_thread() {
+		return scanThread;
+	}
+
+	inline vector<pthread_t> get_index_threads() {
+		return index->threadVec;
+	}
+
+	inline bool get_exit_signal() {
+		pthread_mutex_lock( &signal_mutex );
+		bool ret = exit_signal;
+		pthread_mutex_unlock( &signal_mutex );
+		return ret;
+	}
+
+	inline void set_exit_signal() {
+		pthread_mutex_lock( &signal_mutex );
+		exit_signal = true;
+		pthread_mutex_unlock( &signal_mutex );
+	}
+
 	int		write2db( const string& sql );
 	
 	int 	push_record( RECORD * );
@@ -90,7 +125,7 @@ public:
 
 	void 	export_longer_chains();
 
-	void	export_timeout_flows();
+	void	export_timeout_flows(int timeout=FLOW_TIMEOUT);
 
 	void 	scan_hash_table();
 

@@ -15,6 +15,13 @@
 
 #include "libtrace.h"
 
+
+#define ERROR_INFO(msg,next)  do { \
+	fprintf(stderr,"error msg: %s in file %d at line %s\n",\
+			__FILE__,__LINE__,msg);\
+	next;\
+}while(0)
+
 #define DEBUG
 typedef unsigned char Byte;
 

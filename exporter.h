@@ -20,10 +20,14 @@
 #include "record.h"
 #include "collector.h"
 
-#define 	SCAN_INTERVAL 		1    /* how long to scan hash_table and export packets, unit: second */
-#define		FLOW_TIMEOUT		180     /*  3 minutes */
+#ifdef HASH_PERF
+#include "perfMeasure.h"
+#endif
+
+#define 	SCAN_INTERVAL 		1       /* how long to scan hash_table and export packets, unit: second */
+#define		FLOW_TIMEOUT		10		/*  3 minutes */
 #define		MAX_FILE_PACKETS	1024	/* max packets number per file stored */
-#define		BUCKETSIZE 			1024*1024
+#define		BUCKETSIZE			999983	
 
 typedef Record RECORD;
 
@@ -58,9 +62,11 @@ private:
 	uint32_t		totalRecordNum;  /* total number of records in current exporter buffer */
 	LinkNode *		hash_table[BUCKETSIZE]; /* head pointer of each hash bucket */
 	Collector&		collector;				/* the reference of unique collector */
+	timeval			last_packet_timeval;
 
 #ifdef HASH_PERF
 	int				bucket_size[BUCKETSIZE]; /* the number of different records located at one bucket, size of collision*/
+	PerfMeasure		hash_collision ;
 #endif
 
 	DBHandle*		db_handle;		    	/*  the handle of write record to database */
@@ -79,6 +85,7 @@ private:
 
 	// flag of checking file size <= 4G
 	bool			file_is_full;
+	FileWriter*		fileWriter;
 
 public:
 	Exporter( const string& _name, Collector &c, DBHandle* db = NULL );
@@ -118,7 +125,7 @@ public:
 
 	void 	export_longer_chains();
 
-	void	export_timeout_flows(FileWriter* fileWriter,int timeout=FLOW_TIMEOUT);
+	void	export_timeout_flows(int timeout=FLOW_TIMEOUT);
 
 	void 	scan_hash_table();
 

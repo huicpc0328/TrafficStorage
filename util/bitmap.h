@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include <cstdio>
 #include <assert.h>
+#include "../global.h"
 
 //template<typename Type> class BloomFilter;
 
@@ -33,7 +34,7 @@ class Bitmap {
 			bitSize = elemSize << RIGHT_SHIFT_NUM;
 
 			if( !byteArray ) {
-				fprintf( stderr, "Cannot alloc memory for bitmap In file %s, line %d, function %s\n", __FILE__, __LINE__, __func__ );
+				ERROR_INFO("Cannot alloc memory for bitmap",);
 			}
 		}
 
@@ -43,7 +44,7 @@ class Bitmap {
 		
 		void setBit( int64_t  bitPos )  {
 			assert( bitPos >= 0 && bitPos < bitSize );
-			// for assert will not be effective release mode 
+			// for assert will not be effective in release mode 
 			if( bitPos < 0 || bitPos >= bitSize ) {
 				return ;
 			}
@@ -52,7 +53,7 @@ class Bitmap {
 
 		bool getBit( int64_t  bitPos ) const {
 			assert( bitPos >= 0 && bitPos < bitSize );
-			// for assert will not be effective release mode 
+			// for assert will not be effective in release mode 
 			if( bitPos < 0 || bitPos >= bitSize ) {
 				return false;
 			}

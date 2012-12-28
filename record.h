@@ -60,6 +60,10 @@ public:
 
 	void set_file_name(std::string s);
 
+	inline timeval get_time_tv() {
+		return tv;
+	}
+
 	inline __time_t get_time_second() {
 		return 	tv.tv_sec;
 	}

@@ -17,7 +17,7 @@
 #include "resourcePool.h"
 #include <queue>
 
-#define MAX_PACKETS	1024*1024
+#define MAX_PACKETS	2*1024*1024
 /* if the number of packets in hash table more than this macro, we should export some packets to hard disk */
 #define		POOL_PACKETS_UPBOUNDER 	MAX_PACKETS*3/4
 /* if the number of packets in hash table less than this macro, we can stop exporting packets to disk. */

@@ -78,7 +78,7 @@ Index::Index( uint16_t flag ): indexFlag(flag) {
 		UIPAIR 	*uipair = new UIPAIR(SRCIP,this);
 		int err = pthread_create( &tid, NULL, index_thread_start, (void *)uipair);
 		if( err ) {
-			fprintf(stderr,"Cannot create thread in file %s, function %s, MSG:%s\n",__FILE__,__func__,strerror(err));
+			ERROR_INFO("cannot create thread!",);
 		} else {
 			threadVec.push_back( tid );
 		}
@@ -91,7 +91,7 @@ Index::Index( uint16_t flag ): indexFlag(flag) {
 		UIPAIR 	*uipair = new UIPAIR(DSTIP,this);
 		int err = pthread_create( &tid, NULL, index_thread_start, (void *)uipair );
 		if( err ) {
-			fprintf(stderr,"Cannot create thread in file %s, function %s, MSG:%s\n",__FILE__,__func__,strerror(err));
+			ERROR_INFO("cannot create thread!",);
 		}else {
 			threadVec.push_back( tid );
 		}
@@ -104,7 +104,7 @@ Index::Index( uint16_t flag ): indexFlag(flag) {
 		UIPAIR 	*uipair = new UIPAIR(SPORT,this);
 		int err = pthread_create( &tid, NULL, index_thread_start, (void *)uipair );
 		if( err ) {
-			fprintf(stderr,"Cannot create thread in file %s, function %s, MSG:%s\n",__FILE__,__func__,strerror(err));
+			ERROR_INFO("cannot create thread!",);
 		} else {
 			threadVec.push_back( tid );
 		}
@@ -117,7 +117,7 @@ Index::Index( uint16_t flag ): indexFlag(flag) {
 		UIPAIR 	*uipair = new UIPAIR(DPORT,this);
 		int err = pthread_create( &tid, NULL, index_thread_start, (void *)uipair);
 		if( err ) {
-			fprintf(stderr,"Cannot create thread in file %s, function %s, MSG:%s\n",__FILE__,__func__,strerror(err));
+			ERROR_INFO("cannot create thread!",);
 		} else {
 			threadVec.push_back( tid );
 		}
@@ -179,7 +179,7 @@ void Index::addPkt(INDEXCODE code) {
 			break;
 		}
 		default:
-			fprintf(stderr, "Error Code in file %s function %s\n", __FILE__,__func__);
+			ERROR_INFO("Error index code",);
 	}
 }
 

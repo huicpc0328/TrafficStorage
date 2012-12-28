@@ -64,10 +64,10 @@ void test_queryFromFile( const char *fileName = "test.dat") {
 	list = iibtree.queryFromFile( fileName, 1000000, 1000000 );
 	if( list ) list->outInfo();
 	delete list;
-	for( int i = 0 ; i < 1000000; ++i ) {
+	for( int i = 0 ; i < 500000; ++i ) {
 		int key = get();
 		list = iibtree.queryFromFile( fileName, key, key + 1000);
-#if 0
+#if 1 
 		if( i%10000 == 0 ) {
 			printf("query at %d\n",i);
 			if(list) list->outInfo();

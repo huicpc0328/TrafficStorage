@@ -25,9 +25,9 @@
 #include <errno.h>
 #include <vector>
 #include "bitmap.h"
+#include "../global.h"
 
 #define	defaultElemNum  10000000
-
 
 template<typename Type>
 class BloomFilter {
@@ -104,7 +104,7 @@ BloomFilter<Type>::BloomFilter( int32_t _elemNum ):elementNum(_elemNum){
 
 	int ret = init();
 	if( ret ) {
-		fprintf( stderr, "Create BloomFilter failed in file %s, line %d\n",__FILE__,__LINE__);
+		ERROR_INFO("Create BloomFilter failed", );		
 	}
 }
 
@@ -113,7 +113,7 @@ BloomFilter<Type>::BloomFilter(int32_t _elemNum, int32_t _hashNum):elementNum(_e
 		hashFuncNum( _hashNum ) {
 	int ret = init();
 	if( ret ) {
-		fprintf( stderr, "Create BloomFilter failed in file %s, line %d\n",__FILE__,__LINE__);
+		ERROR_INFO("Create BloomFilter failed", );		
 	}
 }
 
@@ -136,8 +136,7 @@ template<typename Type>
 void BloomFilter<Type>::setHashFunc( HASHFUNC hashFunc, int32_t idx ) {
 	assert( idx >= 0 && idx < hashFuncVec.size() );
 	if( idx < 0 || idx >= hashFuncVec.size() ) {
-		fprintf( stderr, "Invalid index when setting hash function of BloomFilter in file %s, line %d\n",__FILE__,__LINE__);
-		return ;
+		ERROR_INFO("Invalid index when setting hash function of BloomFilter", );		
 	}
 	hashFuncVec[idx] = hashFunc;
 }
@@ -179,8 +178,7 @@ template<typename Type>
 void BloomFilter<Type>::merge( const BloomFilter<Type> & bf ) { 
 	assert( bitmap->getBitSize() == bf.bitmap->getBitSize() );
 	if( bitmap->getBitSize() != bf.bitmap->getBitSize() ) {
-		fprintf( stderr, "Failed when merging two bloomfilters that have different bitSize in file %s, line %d\n", __FILE__, __LINE__ );
-		return ;
+		ERROR_INFO("Failed merging two bloomfilters that have different bitSize", );		
 	}
 	bitmap->merge( bf.bitmap );
 }
@@ -199,21 +197,11 @@ int BloomFilter<Type>::dump2file( int fd, int32_t offset, int whence ) {
 
 	off_t pos = lseek( fd, offset, whence );
 	if( pos == -1 ) {
-		fprintf( stderr, "seek position of file failed in file %s, line %d, func %s\n", __FILE__,__LINE__,__func__ );
-		return -1;
+		ERROR_INFO("seek position of file failed", return -1 );		
 	}
 
-	int ret = write( fd, (void *)&elementNum, sizeof(elementNum) );
-	if( ret == -1 ) {
-		fprintf( stderr, "error msg %s in file %s, func = %s\n", strerror( errno), __FILE__, __func__ );
-		return -1;
-	}
-	
-	ret = write( fd, (void *)&hashFuncNum, sizeof(hashFuncNum) );
-	if( ret == -1 ) {
-		fprintf( stderr, "error msg %s in file %s, func = %s\n", strerror( errno), __FILE__, __func__ );
-		return -1;
-	}
+	write( fd, (void *)&elementNum, sizeof(elementNum) );
+	write( fd, (void *)&hashFuncNum, sizeof(hashFuncNum) );
 
 	/*
 	int64_t bitSize = bitmap->getBitSize();
@@ -224,10 +212,8 @@ int BloomFilter<Type>::dump2file( int fd, int32_t offset, int whence ) {
 	}
 	*/
 	
-	ret = bitmap->dump2file( fd ); 
-	if( ret == -1 ) {
-		fprintf( stderr, "error msg %s in file %s, func = %s\n", strerror( errno), __FILE__, __func__ );
-		return -1;
+	if( bitmap->dump2file( fd ) == -1 ) {
+		ERROR_INFO( strerror(errno),return -1);		
 	}
 	return 0;
 }
@@ -240,22 +226,11 @@ int BloomFilter<Type>::readFromFile(int fd, int32_t offset, int whence ){
 
 	off_t pos = lseek( fd, offset, whence );
 	if( pos == -1 ) {
-		fprintf( stderr, "seek position of file failed in file %s, line %d, func %s\n", __FILE__,__LINE__,__func__ );
-		return -1;
+		ERROR_INFO("seek position of file failed",return -1 );		
 	}
 	
-	int ret = read( fd, (void *)&elementNum, sizeof(elementNum) );
-	if( ret == -1 ) {
-		fprintf( stderr, "error msg %s in file %s, func = %s\n", strerror( errno), __FILE__, __func__ );
-		return -1;
-	}
-	
-	ret = read( fd, (void *)&hashFuncNum, sizeof(hashFuncNum) );
-	if( ret == -1 ) {
-		fprintf( stderr, "error msg %s in file %s, func = %s\n", strerror( errno), __FILE__, __func__ );
-		return -1;
-	}
-
+	read( fd, (void *)&elementNum, sizeof(elementNum) );
+	read( fd, (void *)&hashFuncNum, sizeof(hashFuncNum) );
 	/*
 	int64_t bitSize ; 
 	ret = read( fd, (void *)&bitSize, sizeof(bitSize) );
@@ -272,10 +247,8 @@ int BloomFilter<Type>::readFromFile(int fd, int32_t offset, int whence ){
 
 	hashFuncVec.resize( hashFuncNum );
 
-	ret = bitmap->readFromFile( fd );
-	if( ret == -1 ) {
-		fprintf( stderr, "error msg %s in file %s, func = %s\n", strerror( errno), __FILE__, __func__ );
-		return -1;
+	if( bitmap->readFromFile( fd ) == -1 ) {
+		ERROR_INFO( strerror(errno),return -1);		
 	}
 	return 0;
 }
@@ -285,16 +258,14 @@ template<typename Type>
 int BloomFilter<Type>::dump2file( FILE* fp) {
 
 	if( !fp ) {
-		fprintf( stderr, "NULL pointer fp in file %s at line %d\n", __FILE__, __LINE__ );
-		return -1;
+		ERROR_INFO("NULL pointer fp",return -1);		
 	}
 
 	fwrite( (void *)&elementNum, sizeof(elementNum), 1, fp);
 	fwrite( (void *)&hashFuncNum, sizeof(hashFuncNum), 1, fp );
 	
 	if( bitmap->dump2file( fp ) == -1 ) {
-		fprintf( stderr, "error msg %s in file %s, func = %s\n", strerror( errno), __FILE__, __func__ );
-		return -1;
+		ERROR_INFO( strerror(errno),return -1);		
 	}
 	return 0;
 }
@@ -302,8 +273,7 @@ int BloomFilter<Type>::dump2file( FILE* fp) {
 template<typename Type>
 int BloomFilter<Type>::readFromFile( FILE* fp ){
 	if( !fp ) {
-		fprintf( stderr, "NULL pointer fp in file %s at line %d\n", __FILE__, __LINE__ );
-		return -1;
+		ERROR_INFO("NULL pointer fp",return -1);		
 	}
 	
 	fread( (void *)&elementNum, sizeof(elementNum), 1, fp );
@@ -313,8 +283,7 @@ int BloomFilter<Type>::readFromFile( FILE* fp ){
 
 	assert( bitmap != NULL );
 	if( bitmap->readFromFile( fp ) == -1 ){
-		fprintf( stderr, "error msg %s in file %s, func = %s\n", strerror( errno), __FILE__, __func__ );
-		return -1;
+		ERROR_INFO( strerror(errno),return -1);		
 	}
 	return 0;
 

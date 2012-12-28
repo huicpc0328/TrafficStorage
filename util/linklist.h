@@ -17,6 +17,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <assert.h>
+#include "../global.h"
 #ifdef DEBUG
 #include <iostream>
 using namespace std;
@@ -64,7 +65,7 @@ class LinkList {
 			}
 
 			if( nodeCount != 0 ) {
-				fprintf( stderr, "There are Something wrong in LinkList at file %s, line %d\n", __FILE__, __LINE__);
+				ERROR_INFO("There are Something wrong in LinkList",);
 			}
 		}
 
@@ -79,14 +80,12 @@ class LinkList {
 			if( head == NULL ) {
 				head = tail = new LinkNode( data );
 				if( !head ) {
-					fprintf( stderr, "Cannot alloc memory for LinkNode at file %s, line %d\n", __FILE__ , __LINE__ );
-					return -1;
+					ERROR_INFO("Cannot alloc memory for LinkNode",return -1);
 				}
 			} else {
 				tail = tail->next = new LinkNode( data );
 				if( !tail ) {
-					fprintf( stderr, "Cannot alloc memory for LinkNode at file %s, line %d\n", __FILE__ , __LINE__ );
-					return -1;
+					ERROR_INFO("Cannot alloc memory for LinkNode",return -1);
 				}
 			}
 			nodeCount++;
@@ -178,8 +177,7 @@ class LinkList {
 		    assert( fd >= 0 );	
 			off_t pos = lseek( fd, offset, SEEK_CUR );
 			if( pos < 0 ) {
-				fprintf( stderr, "reseeking file handler position failed at file %s, line %d\n", __FILE__,__LINE__);
-				return -1;
+				ERROR_INFO("seeking file position error",return -1);
 			}
 
 			write( fd, &nodeCount, sizeof( nodeCount ) ) ;
@@ -209,8 +207,7 @@ class LinkList {
 			// we will seek from current position defaultly.
 			off_t pos = lseek( fd, offset, SEEK_CUR );
 			if( pos < 0 ) {
-				fprintf( stderr, "reseeking file handler position failed at file %s, line %d\n", __FILE__,__LINE__);
-				return -1;
+				ERROR_INFO("NULL file pointer fp", return -1);
 			}
 
 			read( fd, &nodeCount, sizeof( nodeCount ));
@@ -233,8 +230,7 @@ class LinkList {
 		// file IO
 		int 	write2file( FILE * fp ) {
 			if( !fp ) {
-				fprintf( stderr, "NULL pointer fp in file %s at line %d\n", __FILE__, __LINE__ );
-				return -1;
+				ERROR_INFO("NULL file pointer fp",return -1);
 			}
 
 			fwrite( &nodeCount, sizeof( nodeCount ), 1 , fp ) ;
@@ -250,8 +246,7 @@ class LinkList {
 		// read data from file and load it to current LinkList object.
 		int		readFromFile( FILE *fp ) {
 			if( !fp ) {
-				fprintf( stderr, "NULL pointer fp in file %s at line %d\n", __FILE__, __LINE__ );
-				return -1;
+				ERROR_INFO("NULL file pointer fp",return -1);
 			}
 
 			fread( &nodeCount, sizeof( nodeCount ), 1, fp);

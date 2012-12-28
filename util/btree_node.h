@@ -16,6 +16,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdint.h>
+#include "../global.h"
 #include "linklist.h"
 
 #define MAX_PER_NODE 64
@@ -27,7 +28,6 @@
 template<typename KEY>
 class BTreeNode {
 	protected:
-		static 	int8_t  maxNumber;
 		int8_t	elemCount; /* the elemCount of each BTreeNode must be less than min( 256, MAX_PER_NODE ) */
 		KEY 	keyArray[MAX_PER_NODE];  /* the array stored the key values */
 		int8_t 	isLeaf;		/* flag to represent current Node is leaf or internal node */
@@ -75,7 +75,7 @@ class BTreeNode {
 		virtual int  getSizeOfFile() = 0; 
 
 		virtual void copyItems( BTreeNode<KEY>* ptr, int32_t start, int32_t n ) {
-			for( int i = 0 ; i < n &&  elemCount < BTreeNode<KEY>::maxNumber ; ++i ) {
+			for( int i = 0 ; i < n &&  elemCount < MAX_PER_NODE ; ++i ) {
 				keyArray[elemCount++] = ptr->getKey( start + i );
 			}
 		}
@@ -97,7 +97,7 @@ class BTreeNode {
 		}
 
 		inline void setElemCount( int32_t cnt ) {
-			assert( cnt >= 0 && cnt <= BTreeNode<KEY>::maxNumber );
+			assert( cnt >= 0 && cnt <= MAX_PER_NODE );
 			elemCount = cnt;
 		}
 
@@ -111,9 +111,6 @@ class BTreeNode {
 			keyArray[ idx ] = key;
 		}
 };
-
-template<typename KEY>
-int8_t BTreeNode<KEY>::maxNumber = MAX_PER_NODE;
 
 // implementation of internal btree node 
 template<typename KEY>
@@ -133,7 +130,7 @@ class InternalNode: public BTreeNode<KEY> {
 
 		int addItem( const KEY& key, BTreeNodePtr child, int pos = -1 ) {
 			
-			if( BTreeNode<KEY>::elemCount >= BTreeNode<KEY>::maxNumber ) {
+			if( BTreeNode<KEY>::elemCount >= MAX_PER_NODE ) {
 				return -1;
 			}
 
@@ -159,7 +156,7 @@ class InternalNode: public BTreeNode<KEY> {
 		void copyItems( BTreeNodePtr ptr, int32_t start, int32_t n ) {
 			BTreeNode<KEY>::copyItems( ptr, start, n );
 
-			for( int i = 0 ; i < n && i < BTreeNode<KEY>::maxNumber; ++i ) {
+			for( int i = 0 ; i < n && i < MAX_PER_NODE; ++i ) {
 				childPtr[i] = ((InternalNode<KEY>*)ptr)->getChildren( start + i );
 			}
 
@@ -208,8 +205,7 @@ class InternalNode: public BTreeNode<KEY> {
 		    assert( fd >= 0 );	
 			off_t pos = lseek( fd, offset, whence) ;
 			if( pos < 0 ) {
-				fprintf( stderr, "reseeking file handler position failed at file %s, line %d, msg: %s\n", __FILE__,__LINE__, strerror(errno));
-				return -1;
+				ERROR_INFO("reseeking file handler position failed",return -1);
 			}
 
 			write( fd, &(this->isLeaf), sizeof(BTreeNode<KEY>::isLeaf));
@@ -227,8 +223,7 @@ class InternalNode: public BTreeNode<KEY> {
 			assert( fd >= 0 );	
 			off_t pos = lseek( fd, offset, whence) ;
 			if( pos < 0 ) {
-				fprintf( stderr, "reseeking file handler position failed at file %s, line %d, msg: %s\n", __FILE__,__LINE__, strerror(errno));
-				return -1;
+				ERROR_INFO("reseeking file handler position failed",return -1);
 			}
 
 			//we have readed isLeaf value before we call this function
@@ -241,8 +236,7 @@ class InternalNode: public BTreeNode<KEY> {
 		// file IO
 		int write2file( FILE * fp) {
 			if( !fp ) {
-				fprintf( stderr, "NULL pointer fp in file %s, line %d, MSG: %s\n", __FILE__,__LINE__, strerror(errno));
-				return -1;
+				ERROR_INFO("NULL file pointer fp",return -1);
 			}
 
 			fwrite( &(this->isLeaf), sizeof(BTreeNode<KEY>::isLeaf) , 1, fp);
@@ -258,8 +252,7 @@ class InternalNode: public BTreeNode<KEY> {
 
 		int readFromFile( FILE *fp ) {
 			if( !fp ) {
-				fprintf( stderr, "NULL pointer fp in file %s, line %d, MSG: %s\n", __FILE__,__LINE__, strerror(errno));
-				return -1;
+				ERROR_INFO("NULL file pointer fp",return -1);
 			}
 			//we have readed isLeaf value before we call this function
 			//read( fd, &(this->isLeaf), sizeof(BTreeNode<KEY>::isLeaf));
@@ -315,7 +308,7 @@ class LeafNode: BTreeNode<KEY> {
 			}
 
 			// when this node is full
-			if( BTreeNode<KEY>::elemCount >= BTreeNode<KEY>::maxNumber ) {
+			if( BTreeNode<KEY>::elemCount >= MAX_PER_NODE ) {
 				return -1 ;
 			}
 
@@ -332,8 +325,7 @@ class LeafNode: BTreeNode<KEY> {
 
 			resultArray[pos] = new LinkList<VALUE>();
 			if( !resultArray[pos] ) {
-				fprintf( stderr, "cannot alloc memory for linklist in file %s, at line %d\n", __FILE__, __LINE__ );
-				return -1;
+				ERROR_INFO("cannot alloc memory for linklist", return -1);
 			}
 			BTreeNode<KEY>::keyArray[pos] = key;
 			resultArray[pos]->clear();
@@ -346,14 +338,14 @@ class LeafNode: BTreeNode<KEY> {
 		void copyItems( BTreeNode<KEY>* ptr, int32_t start, int32_t n ) {
 			BTreeNode<KEY>::copyItems( ptr, start, n );
 
-			for( int i = 0 ; i < n && start+i < BTreeNode<KEY>::maxNumber; ++i ) {
+			for( int i = 0 ; i < n && start+i < MAX_PER_NODE; ++i ) {
 				resultArray[i] = ((LeafNode<KEY,VALUE>*)ptr)->getResult( start+i );
 			}
 		}
 
 
 		LinkList<VALUE>* getResult( int32_t idx ) {
-			assert( idx >= 0 && idx <= BTreeNode<KEY>::maxNumber );
+			assert( idx >= 0 && idx <= MAX_PER_NODE );
 			assert( resultArray[idx] != NULL );
 			return resultArray[idx];
 		}
@@ -379,8 +371,7 @@ class LeafNode: BTreeNode<KEY> {
 		    assert( fd >= 0 );	
 			off_t pos = lseek( fd, offset, whence) ;
 			if( pos < 0 ) {
-				fprintf( stderr, "reseeking file handler position failed at file %s, line %d\n", __FILE__,__LINE__);
-				return -1;
+				ERROR_INFO("reseeking file handler position failed",return -1);
 			}
 
 			write( fd, &(this->isLeaf), sizeof(BTreeNode<KEY>::isLeaf));
@@ -398,8 +389,7 @@ class LeafNode: BTreeNode<KEY> {
 		    assert( fd >= 0 );	
 			off_t pos = lseek( fd, offset, whence) ;
 			if( pos < 0 ) {
-				fprintf( stderr, "reseeking file handler position failed at file %s, line %d\n", __FILE__,__LINE__);
-				return -1;
+				ERROR_INFO("reseeking file handler position failed",return -1);
 			}
 
 			//we have readed isLeaf value before we call this function
@@ -418,8 +408,7 @@ class LeafNode: BTreeNode<KEY> {
 #else 
 		int write2file( FILE * fp) {
 			if( !fp ) {
-				fprintf( stderr, "NULL pointer fp in file %s, line %d, MSG: %s\n", __FILE__,__LINE__, strerror(errno));
-				return -1;
+				ERROR_INFO("NULL file pointer fp",return -1);
 			}
 
 			fwrite( &(this->isLeaf), sizeof(BTreeNode<KEY>::isLeaf), 1, fp);
@@ -436,8 +425,7 @@ class LeafNode: BTreeNode<KEY> {
 
 		int readFromFile( FILE * fp) {
 			if( !fp ) {
-				fprintf( stderr, "NULL pointer fp in file %s, line %d, MSG: %s\n", __FILE__,__LINE__, strerror(errno));
-				return -1;
+				ERROR_INFO("NULL file pointer fp",return -1);
 			}
 			//we have readed isLeaf value before we call this function
 			//read( fd, &(this->isLeaf), sizeof(BTreeNode<KEY>::isLeaf));

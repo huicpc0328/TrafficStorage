@@ -35,12 +35,13 @@ BloomFilter<string>bf(N);
 void test_accuracy() {
 	for( int i = 0 ; i < N/2 ; ++i ) {
 		hashMap[ a[i] ] = 1;
+		if( i < 50 ) cout<<a[i]<<endl;
 		bf.insertElement( a[i] );
 	}
 	int FP = 0;
 	int TP = 0;
 
-	for( int i = 0 ; i < N/2 ; ++i ) {
+	for( int i = 0 ; i < N; ++i ) {
 		bool ret = bf.containElement( a[i] );
 		
 		if( hashMap[a[i]] == 1 && !ret ) TP++;
@@ -77,7 +78,7 @@ void test_file() {
 	int FP = 0;
 	int TP = 0;
 
-	for( int i = 0 ; i < N/2 ; ++i ) {
+	for( int i = 0 ; i < N ; ++i ) {
 		bool ret = bf2.containElement( a[i] );
 		
 		if( hashMap[a[i]] == 1 && !ret ) TP++;

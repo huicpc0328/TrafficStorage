@@ -19,16 +19,9 @@ static void * scan_thread_start( void *arg ) {
 void Exporter::scan_hash_table() {
 	
 	printf("Scan Thread %d has started!\n", (uint32_t)pthread_self());
-	uint16_t fileID = FileManager::apply_file_ID(); 
 	stringstream stream;
 	string dir = FileManager::get_directory_name(), fileName;
-	stream<<dir<<fileID<<DATA_FILE_SUFFIX;
-	stream>>fileName;
-	FileWriter*	fileWriter = new FileWriter(fileName );
-	if( !fileWriter ) {
-		fprintf(stderr, "cannot create FileWriter\n in file %s, line %d\n",__FILE__,__LINE__);
-		pthread_exit(0);
-	} 
+	uint16_t	fileID = 0;
 
 	while( 1 ) {
 		pthread_mutex_lock( &(index->queueLock));
@@ -39,19 +32,23 @@ void Exporter::scan_hash_table() {
 		index->clear_linkNodePool();
 
 		// check file size <= 4G
-		if( file_is_full || this->get_exit_signal() ) {
+		//if( file_is_full || this->get_exit_signal() ) {
+		if( file_is_full ) {
 			index->write_index_to_file( fileID );
 			fileID = FileManager::apply_file_ID();
 			stream.clear();
 			stream<<dir<<fileID<<DATA_FILE_SUFFIX;
 			stream>>fileName;
 			fileWriter->reset_file(fileName);
+			// reset file_is_full 
+			file_is_full = false;
 		}
 
 		// check receiving exit signal or not
 		// did this examination comsume much cpu resource ?
 		if( this->get_exit_signal() ) {
 			// export all records in hash table when received exit signal;
+#if 0
 			export_timeout_flows( fileWriter, 0 );
 			index->readCode = (index->indexFlag);
 			pthread_mutex_unlock( &(index->queueLock) );
@@ -64,8 +61,9 @@ void Exporter::scan_hash_table() {
 			while( index->readCode != 0 ) {
 				pthread_cond_wait( &(index->emptyCond), &(index->queueLock) );
 			}
-			index->readCode = index->indexFlag;
 			index->clear_linkNodePool();
+#endif
+			index->readCode = index->indexFlag;
 			index->write_index_to_file( fileID );
 			this->index->set_exit_signal();	
 			pthread_mutex_unlock( &(index->queueLock) );
@@ -77,10 +75,13 @@ void Exporter::scan_hash_table() {
 			pthread_cond_broadcast( &(index->fullCond) );
 			delete fileWriter;
 			printf("thread scan_hash_table exited\n");
+#ifdef HASH_PERF
+			hash_collision.print_stat();
+#endif
 			pthread_exit(0);
 		}
 
-		export_timeout_flows( fileWriter );
+		export_timeout_flows();
 		index->readCode = (index->indexFlag);
 		pthread_mutex_unlock( &(index->queueLock) );
 #ifdef DEBUG
@@ -112,7 +113,20 @@ Exporter::Exporter( const string & name, Collector &c, DBHandle *db ) : collecto
 	exit_signal = false;
 	pthread_mutex_init( &signal_mutex, NULL );
 
+	uint16_t fileID = FileManager::apply_file_ID(); 
+	stringstream stream;
+	string dir = FileManager::get_directory_name(), fileName;
+	stream<<dir<<fileID<<DATA_FILE_SUFFIX;
+	stream>>fileName;
+	fileWriter = new FileWriter(fileName );
+	if( !fileWriter ) {
+		ERROR_INFO("cannot create FileWriter\n",pthread_exit(0));
+	};
 	file_is_full = false;
+	
+#ifdef HASH_PERF
+	hash_collision = PerfMeasure( "hash_collision" );
+#endif
 }
 
 
@@ -143,12 +157,11 @@ int	Exporter::push_record( RECORD * rec ) {
 
 	int bucketID = ( rec->hash() )%BUCKETSIZE;
 	LinkNode * current = new LinkNode( rec );
-	struct timeval tv;
-	gettimeofday(&tv, NULL );
+	// TODO: need to add a mutex for it?
+	last_packet_timeval = rec->get_time_tv();
 
 	if( current == NULL ) {
-		fprintf( stderr, "can't allocate memory for LinkNode\n" );
-		return -1;
+		ERROR_INFO("can't allocate memory for LinkNode\n",return -1 );
 	}
 
 	pthread_mutex_lock( &bucket_mutex[ bucketID ] );
@@ -162,16 +175,14 @@ int	Exporter::push_record( RECORD * rec ) {
 
 #ifdef		HASH_PERF
 		bucket_size[bucketID] = 1;
+		hash_collision.addRecord(0);
 #endif
 	} else {
 		LinkNode  *ptr = NULL;
 
-#ifdef		HASH_PERF
-		++bucket_size[bucketID];
-#endif
-
 		bool flag = false;
-		for( ptr = hash_table[bucketID] ; ptr ; ptr = ptr->nextlink ) {
+		int  step = 1;
+		for( ptr = hash_table[bucketID] ; ptr ; ptr = ptr->nextlink, ++step ) {
 			if( (*(ptr->data)).equals( rec ) ) {
 				ptr->tail->nextdata = current;
 				ptr->tail = current;
@@ -180,6 +191,11 @@ int	Exporter::push_record( RECORD * rec ) {
 				break;
 			}
 		}
+
+#ifdef		HASH_PERF
+		++bucket_size[bucketID];
+		hash_collision.addRecord( step );
+#endif
 
 		// maybe we should put this record to the beginning of list, somewhat like LRU algorithm
 		LinkNode *tmp = hash_table[bucketID];
@@ -273,20 +289,22 @@ void 	Exporter::export_chain( LinkNode * chain, FileWriter * file_handle ) {
 	//if( sql != "" ) write2db( sql );
 }
 
-void  Exporter::export_timeout_flows(FileWriter* fileWriter, int timeout) {
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
+void  Exporter::export_timeout_flows(int timeout) {
+	struct timeval tv = last_packet_timeval;
+	//gettimeofday(&tv, NULL);
 
 	// scan the hash table to export record and free resource
 	for( int i = 0 ; i < BUCKETSIZE && !file_is_full; ++i ) {
+		pthread_mutex_lock( &bucket_mutex[i] );
+
 		LinkNode *ptr = hash_table[i] , *pre = NULL;
 		int pre_record_num = totalRecordNum;
 
-		pthread_mutex_lock( &bucket_mutex[i] );
 		while( ptr != NULL ) {
 			// if the time period between now and the last packet of this flow arrived is more than
 			// FLOW_TIME_OUT, we should export this record.
 
+#if 0
 			assert( ptr->tail != NULL );
 			if( ptr->tail->data == NULL ) {
 				printf("address = %p\n",ptr->tail );
@@ -296,6 +314,7 @@ void  Exporter::export_timeout_flows(FileWriter* fileWriter, int timeout) {
 				}
 			}
 			assert( ptr->tail->data != NULL);
+#endif
 
 			//if( tv.tv_sec - ptr->tail->data->get_time_second() >= FLOW_TIMEOUT ) {
 			if( tv.tv_sec - ptr->data->get_time_second() >= timeout ) {
@@ -308,15 +327,23 @@ void  Exporter::export_timeout_flows(FileWriter* fileWriter, int timeout) {
 				if( ptr == hash_table[i] ) {
 					hash_table[i] = ptr->nextlink;
 				} else {
+					if( pre == NULL ) {
+						printf("ptr = %p, hash_table[i] = %p\n", ptr, hash_table[i] );
+						for( LinkNode *iter = hash_table[i]; iter ; iter = iter->nextlink) {
+							printf("%p ",iter);
+						}
+					}
 					assert( pre != NULL );
 					pre->nextlink = ptr->nextlink;
 				}
 
 				LinkNode *next = ptr->nextlink;
+				if( pre == NULL ) assert( next == hash_table[i]);
 				export_chain( ptr, fileWriter );
 				ptr = next;
 			} else {
 				pre = ptr;
+				assert( ptr != NULL );
 				ptr = ptr->nextlink;
 			}
 		}

@@ -13,12 +13,12 @@ Collector::Collector( const char *uri ):trace( NULL ) {
 
 	// initialize all the packet object in pool, this is very important
 	int cap = pool.capacity();
-#ifdef DEBUG
-	printf("Capacity = %d\n",cap);
-#endif
 	for( int i = 0; i < cap; ++i ) {
 		pool.set_resource_free( trace_create_packet() );
 	}
+#ifdef DEBUG
+	printf("Capacity = %d, pool_size = %d\n",cap, pool.size());
+#endif
 
 	pthread_mutex_init( &packet_queue_mutex, NULL );
 	pthread_mutex_init( &pool_resource_mutex, NULL );
@@ -30,6 +30,7 @@ Collector::~Collector() {
 	}
 	PACKET * packet = NULL;
 	// wait all the packets in queue to be processed.
+#if 0
 	while( 1 ) {
 		pthread_mutex_lock( &pool_resource_mutex );
 		if( pool.size() == pool.capacity() ) break;
@@ -37,6 +38,7 @@ Collector::~Collector() {
 		pthread_mutex_unlock( &pool_resource_mutex );
 		sleep(3);
 	}
+#endif 
 	while( (packet=pool.get_free_resource()) != NULL ) {
 		trace_destroy_packet( packet );
 	}
@@ -107,8 +109,7 @@ void Collector::collect() {
 	assert( trace != NULL );
 
 	if( NULL == trace ) {
-		fprintf( stderr , "Cannot open the trace %s\n", inputURI );
-		return ;
+		ERROR_INFO("Cannot open the trace", return );
 	}
 
 #ifdef DEBUG
@@ -142,7 +143,9 @@ void Collector::collect() {
 		//	memory to receive next packets from device when no available free resource in pool.
 		if( packet == NULL ) {
 #ifdef DEBUG
-			printf("No available free source exist!\n");
+			printf("No available free source exist, pool_size = %d, exporter_size = %d!\n", pool.size(),ipv4_exporter.size());
+			ipv4_exporter.export_timeout_flows(0);
+			sleep(3);
 #endif
 			continue;
 		}
@@ -155,7 +158,7 @@ void Collector::collect() {
 		} else {
 			pool.set_resource_free( packet );
 			if( trace_is_err(trace) ) {
-				fprintf(stderr,"something wrong in trace reading\n!");
+				ERROR_INFO("something wrong in trace reading\n!",);
 			}
 #ifdef DEBUG
 			printf("Cannot read packet from trace, total read pkts num = %d!\n", pkt_num);

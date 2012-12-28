@@ -2,12 +2,12 @@
 all: traceDB
 
 CC=g++
-CPPFLAGS=-O2 -g -Wno-unused-result -DUSE_FILEIO
+CPPFLAGS=-O2 -g -Wno-unused-result -DUSE_FILEIO -DHASH_PERF
 
 DEPF = global.h collector.h dbHandle.h exporter.h ./include/JsonBox.h \
-		collector.o parser.o record.o fileWriter.o index.o exporter.o fileManager.o 
+		collector.o parser.o record.o fileWriter.o index.o exporter.o fileManager.o perfMeasure.o
 
-DEPO = -ltrace collector.o parser.o record.o index.o exporter.o fileManager.o \
+DEPO = -ltrace collector.o parser.o record.o index.o exporter.o fileManager.o perfMeasure.o \
 		 fileWriter.o ./build/libJsonBox.a -lpthread -ltrace
 
 #testcollector: testCollector.cpp $(DEPF)
@@ -45,6 +45,9 @@ fileWriter.o: fileWriter.cpp
 
 fileManager.o: fileManager.cpp
 	$(CC) -c $(CPPFLAGS) fileManager.cpp 
+
+perfMeasure.o: perfMeasure.cpp
+	$(CC) -c $(CPPFLAGS) perfMeasure.cpp 
 
 clean:
 	rm *.o

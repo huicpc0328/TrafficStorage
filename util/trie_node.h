@@ -27,10 +27,10 @@ typedef uint8_t	KEY;
 
 class TrieNode {
 	protected:
-		int8_t 	isLeaf;		/* flag to represent current Node is leaf or internal node */
-		Bitmap  bitmap;     // the ith bit indicate the ith children is NULL or not
-		uint8_t	elemCount;
-		uint32_t*			fileOffArray; // stored the offset-array of file, used when write TrieNode into file.
+		int8_t 		isLeaf;		/* flag to represent current Node is leaf or internal node */
+		Bitmap  	bitmap;     // the ith bit indicate the ith children is NULL or not
+		uint8_t		elemCount;
+		uint32_t*	fileOffArray; // stored the offset-array of file, used when write TrieNode into file.
 
 	public:
 		TrieNode( int8_t  _leaf = 0 ): isLeaf( _leaf ) {
@@ -105,104 +105,27 @@ class InterTrieNode: public TrieNode{
 
 
 // implementation of leaf b-tree node 
-template<typename VALUE>
-class LeafTrieNode: TrieNode{
+typedef uint32_t VALUE;
+class LeafTrieNode: public TrieNode{
 	private:
 
 		LinkList<VALUE>*	resultArray[MAX_PER_NODE]; /* the matched result-list of each key */
 
 	public:
-		LeafTrieNode() : TrieNode( 1 ) {
-			for( int i = 0 ; i < MAX_PER_NODE; ++i ) resultArray[i] = NULL;
-		}
+		LeafTrieNode(); 
 
-		~LeafTrieNode() {
-			for( int i = 0 ; i < this->elemCount; ++i ) {
-				assert( resultArray[i] != NULL );
-				if( resultArray[i] ) 
-					delete resultArray[i];
-			}
-		}
+		~LeafTrieNode();
 
-		int addItem( const KEY& pos, const VALUE& value ) {
-			if( resultArray[pos] == NULL ) {
-				resultArray[pos] = new LinkList<VALUE>();
-				if( !resultArray[pos] ) {
-					ERROR_INFO("cannot alloc memory for linklist", return -1);
-				}
-				resultArray[pos]->clear();
-			}
-			resultArray[pos]->addElement(value);
-			++this->elemCount;
-			return 0;
-		}
+		int addItem( const KEY& pos, const VALUE& value );
 
-		LinkList<VALUE>* getResult( const uint8_t idx ) {
-			assert( idx >= 0 && idx <= MAX_PER_NODE );
-			assert( resultArray[idx] != NULL );
-			return resultArray[idx];
-		}
+		LinkList<VALUE>* getResult( const uint8_t idx );
 
-		/* layout of storage in file
-		 * |-------------------------|
-		 * |   isLeaf	             |
-		 * |   elemCount             |
-		 * |   1st key 				 | 
-		 * |   1st values' linklist  |
-		 * |   2nd key    			 | 
-		 * |   2nd values' linklist  |
-		 * |   .........             |
-		 * |   .........             |
-		 * |   last key              |
-		 * |   last values' linklist |
-		 * |-------------------------|
-		 */
+		int write2file( FILE * fp);
 
-		int write2file( FILE * fp) {
-			if( !fp ) {
-				ERROR_INFO("NULL file pointer fp",return -1);
-			}
-
-			fwrite( &(this->isLeaf), sizeof(this->isLeaf), 1, fp);
-			this->bitmap.dump2file( fp );
-			fwrite( &(this->elemCount), sizeof(this->elemCount), 1, fp);
-			for( int i = 0 ; i < this->elemCount ; ++i ) {
-				fwrite( &(this->keyArray[i]), sizeof( KEY ), 1, fp );
-				if( resultArray[i]->write2file( fp ) == -1 ) {
-					return -1;
-				}
-			}
-			return 0;	
-		}
-
-		int readFromFile( FILE * fp) {
-			if( !fp ) {
-				ERROR_INFO("NULL file pointer fp",return -1);
-			}
-			//we have readed isLeaf value before we call this function
-			//read( fd, &(this->isLeaf), sizeof(this->isLeaf));
-			fread( &(this->elemCount), sizeof(this->elemCount), 1, fp);
-			for( int i = 0 ; i < this->elemCount ; ++i ) {
-				fread( &(this->keyArray[i]), sizeof( KEY ), 1, fp );
-				assert( resultArray[i] == NULL );
-				resultArray[i] = new LinkList<VALUE>();
-				if( resultArray[i]->readFromFile( fp ) == -1 ) {
-					return -1;
-				}
-			}
-			return 0;
-		}	
-
+		int readFromFile( FILE * fp);
+	
 		// get the total size that we writed this LeafNode Object in file
-		int32_t getSizeOfFile() {
-			int32_t ret = sizeof( this->elemCount ) + sizeof( this->isLeaf);
-			ret += this->elemCount * sizeof( KEY ) ;
-			
-			for( int i = 0 ; i < this->elemCount ; ++i ) {
-				ret += resultArray[i]->getSizeOfFile();
-			}
-			return ret;
-		}
+		int32_t getSizeOfFile();
 
 };
 

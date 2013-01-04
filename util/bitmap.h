@@ -26,23 +26,11 @@
 
 class Bitmap {
 	public:
-		Bitmap( int64_t _bitSize = BITMAP_DEFAULT_SIZE ) :bitSize( _bitSize ) {
-			assert( bitSize > 0 );
-			
-			elemSize = (int32_t)( (bitSize+BITMASK) >> RIGHT_SHIFT_NUM ); 
-			byteArray = new int32_t[elemSize];
-			bitSize = elemSize << RIGHT_SHIFT_NUM;
+		Bitmap( int64_t _bitSize = BITMAP_DEFAULT_SIZE ) ;
 
-			if( !byteArray ) {
-				ERROR_INFO("Cannot alloc memory for bitmap",);
-			}
-		}
-
-		~Bitmap() {
-			if( byteArray != NULL ) delete[] byteArray;
-		}
+		~Bitmap();
 		
-		void setBit( int64_t  bitPos )  {
+		inline void setBit( int64_t  bitPos )  {
 			assert( bitPos >= 0 && bitPos < bitSize );
 			// for assert will not be effective in release mode 
 			if( bitPos < 0 || bitPos >= bitSize ) {
@@ -51,7 +39,7 @@ class Bitmap {
 			byteArray[ bitPos >> RIGHT_SHIFT_NUM ] |= 1<<(bitPos & BITMASK) ;
 		}
 
-		bool getBit( int64_t  bitPos ) const {
+		inline bool getBit( int64_t  bitPos ) const {
 			assert( bitPos >= 0 && bitPos < bitSize );
 			// for assert will not be effective in release mode 
 			if( bitPos < 0 || bitPos >= bitSize ) {
@@ -86,6 +74,12 @@ class Bitmap {
 		int dump2file( FILE* fp ) const;
 
 		int readFromFile( FILE * fp );
+
+		void getOnePosition(uint32_t *);
+
+		inline uint32_t getSizeOfFile() {
+			return sizeof(bitSize) + sizeof(elemSize) + sizeof(uint32_t)*elemSize;
+		}
 
 		template<typename Type> friend class BloomFilter;
 

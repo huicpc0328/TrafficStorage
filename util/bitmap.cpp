@@ -13,7 +13,53 @@
 #include <cstring>
 #include <unistd.h>
 #include <errno.h>
+#include <algorithm>
 
+uint8_t num2pos_table[256] = {
+	-1,0,1,-1,2,-1,-1,-1,3,-1,-1,-1,-1,-1,-1,-1,4,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,5,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,7,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+	-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+};
+
+inline int num2pos( uint32_t num ) {
+	int ret = 0;
+	while( num >= 256 ) {
+		ret += 8;
+		num >>= 8;
+	}
+	assert( num2pos_table[num] >= 0);
+	return ret + num2pos_table[num];
+}
+
+Bitmap::Bitmap( int64_t _bitSize ) :bitSize( _bitSize ) {
+	assert( bitSize > 0 );
+
+	elemSize = (int32_t)( (bitSize+BITMASK) >> RIGHT_SHIFT_NUM ); 
+	byteArray = new int32_t[elemSize];
+	bitSize = elemSize << RIGHT_SHIFT_NUM;
+
+	if( !byteArray ) {
+		ERROR_INFO("Cannot alloc memory for bitmap",);
+	}
+}
+
+Bitmap::~Bitmap() {
+	if( byteArray != NULL ) delete[] byteArray;
+}
+	
 void Bitmap::merge( const Bitmap& bm ) {
 	for( int i = 0 ; i < bm.elemSize && i < elemSize; ++i ) {
 		byteArray[ i ] |= bm.byteArray[i];
@@ -138,4 +184,17 @@ int Bitmap::readFromFile( FILE * fp ) {
 
 	fread( byteArray, sizeof(int32_t)*elemSize, 1, fp );
 	return 0;
+}
+
+void Bitmap::getOnePosition( uint32_t *pos, uint32_t n ) {
+	assert(pos != NULL);
+	int cnt = 0;
+	for( int i = 0 ;i < elemSize; ++i ) {
+		uint32_t tmp = byteArray[i];
+		while( tmp ) {
+			pos[cnt++] = (i<<RIGHT_SHIFT_NUM) + num2pos( tmp&(-tmp) );	
+			tmp ^= tmp&(-tmp);
+		}
+	}
+	assert( cnt != n );
 }

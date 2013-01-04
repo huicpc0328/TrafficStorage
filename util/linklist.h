@@ -197,7 +197,7 @@ class LinkList {
 		}
 
 		// get the total size that we wrote this Linklist object in file
-		int32_t	getSizeOfFile() {
+		inline int32_t	getSizeOfFile() {
 			return sizeof( nodeCount ) + nodeCount * sizeof(T);
 		}
 
@@ -227,6 +227,7 @@ class LinkList {
 			return 0;
 		}
 
+
 		// file IO
 		int 	write2file( FILE * fp ) {
 			if( !fp ) {
@@ -239,7 +240,6 @@ class LinkList {
 			for( LinkNode *ptr = head ; ptr ; ptr = ptr->next ) {
 				fwrite( &(ptr->data), elemSize , 1 , fp );
 			}
-
 			return 0;
 		}
 	
@@ -261,7 +261,6 @@ class LinkList {
 				else tail = tail->next = new LinkNode( array[i] );
 				++i;
 			}
-
 			delete[] array;
 			return 0;
 		}

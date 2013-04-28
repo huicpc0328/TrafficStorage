@@ -6,9 +6,10 @@
 using namespace std;
 
 //const char *uri = "int:wlan0";
-const char *uri = "pcap:/home/hth/desktop/trace/hth2.pcap";
+//const char *uri = "pcap:/home/hth/desktop/trace/hth2.pcap";
 //const char *uri = "pcap:/host/trace/hth3.pcap";
-//const char *uri = "pcap:/home/hth/trace/hth4.pcap";
+//const char *uri = "pcap:/mnt/trace/hth3.pcap";
+const char *uri = "pcap:/home/hth/trace/hth4.pcap";
 
 Collector *collector = new Collector(uri);
 Exporter ipv4_exporter("ipv4", *collector, NULL );
@@ -20,11 +21,11 @@ int main(int argc, char **argv) {
 	time_t begin , end;
 	begin = time(NULL);
 
+	printf("main procedure now!\n");
 	for( int i = 0 ; i < NUM; i++ ) {
 		parser[i] = new Parser( *collector );
-		parser[i]->start();
 	}
-
+	// parser must start before collectotr
 	collector->collect();
 
 	printf("We will cancel threads of parser!\n");
@@ -61,8 +62,8 @@ int main(int argc, char **argv) {
 		printf("canceling one thread of indexing finished!\n");
 	}
 
-	delete collector;
 	end = time(NULL);
 	printf("Total Time = %ds\n",end-begin);
+	delete collector;
 	return 0;
 }

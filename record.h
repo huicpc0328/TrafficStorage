@@ -28,15 +28,14 @@ protected:
 	uint32_t	file_offset;
 	PACKET*		packet;
 public:
+	Record( PACKET* pkt );
 
-	Record( PACKET* pkt ): packet( pkt ) {
-		assert( pkt );
-		tv = trace_get_timeval( packet );
-		file_offset = 0 ;
-	}
-
+	// packet need to be delete by who create
 	virtual ~Record() {}
 	virtual uint32_t hash() = 0;
+	
+	virtual void write2file(FILE*) {
+	}
 
 	virtual std::string get_sql_string() {
 		return "";
@@ -92,37 +91,25 @@ private:
 	uint16_t		dstport;	/** dst port, 0 for icmp, igmp */
 
 public:
-	Ipv4Record( PACKET* pkt ): Record( pkt ) {
-		set_srcip();
-		set_dstip();
-		set_proto();
-		set_srcport();
-		set_dstport();
-	}
+	Ipv4Record( PACKET* pkt );
 
 	~Ipv4Record() {
 	}
 
-	void set_srcip();
-	void set_dstip();
-	void set_proto();
-	void set_srcport();
-	void set_dstport();
-
 	inline uint32_t get_srcip() {
-		return srcip.s_addr;	
+		return ntohl( srcip.s_addr );	
 	}
 
 	inline uint32_t get_dstip() {	
-		return dstip.s_addr;
+		return ntohl( dstip.s_addr );
 	}
 
 	inline uint16_t get_sport() {
-		return srcport;
+		return ntohs( srcport );
 	}
 
 	inline uint16_t get_dport() {
-		return dstport;
+		return ntohs( dstport );
 	}
 	
 	inline uint16_t get_proto() {
@@ -132,6 +119,8 @@ public:
 	uint32_t hash();
 
 	bool equals( Record * );
+
+	void write2file(FILE *fp);
 
 	void display();
 
@@ -143,11 +132,11 @@ public:
 	}
 
 	friend std::ostream& operator << ( std::ostream &out, const Ipv4Record& rec ) {
-		out<<	inet_ntoa(rec.srcip)<<"|" ;
+		out<<	inet_ntoa(rec.srcip)<<"," ;
 		flush(out);
-		out<<	inet_ntoa(rec.dstip)<<"|" \
-			<<	rec.srcport<<"|"\
-			<< 	rec.dstport<<"|"\
+		out<<	inet_ntoa(rec.dstip)<<"," \
+			<<	rec.srcport<<","\
+			<< 	rec.dstport<<","\
 			<< 	(uint8_t)rec.proto;
 		return out;
 	}
@@ -163,22 +152,10 @@ private:
 	uint16_t		dstport;	/** dst port, 0 for icmp, igmp */
 
 public:
-	Ipv6Record( PACKET* pkt ): Record( pkt ) {
-		set_srcip();
-		set_dstip();
-		set_proto();
-		set_srcport();
-		set_dstport();
-	}
+	Ipv6Record( PACKET* pkt );
 
 	~Ipv6Record() {
 	}
-
-	void set_srcip();
-	void set_dstip();
-	void set_proto();
-	void set_srcport();
-	void set_dstport();
 
 	uint32_t hash();
 

@@ -22,8 +22,11 @@
 	next;\
 }while(0)
 
-#define DEBUG
 typedef unsigned char Byte;
+template<typename T>
+inline void swap( T&a, T&b) {
+	T tmp = a; a = b; b = tmp;
+}
 
 namespace libtrace {
 	typedef libtrace_t 					TRACE;

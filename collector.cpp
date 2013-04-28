@@ -143,10 +143,11 @@ void Collector::collect() {
 		//	memory to receive next packets from device when no available free resource in pool.
 		if( packet == NULL ) {
 #ifdef DEBUG
-			printf("No available free source exist, pool_size = %d, exporter_size = %d!\n", pool.size(),ipv4_exporter.size());
-			ipv4_exporter.export_timeout_flows(0);
-			sleep(3);
+			printf("No available free source exist, pool_size = %d, exporter_size = %d, pkt-queue size = %d!\n",\
+					pool.size(),ipv4_exporter.size(),pkt_queue.size());
 #endif
+			//ipv4_exporter.export_timeout_flows(5);
+			sleep(5);
 			continue;
 		}
 
@@ -158,7 +159,7 @@ void Collector::collect() {
 		} else {
 			pool.set_resource_free( packet );
 			if( trace_is_err(trace) ) {
-				ERROR_INFO("something wrong in trace reading\n!",);
+				ERROR_INFO("something wrong in trace reading!\n",);
 			}
 #ifdef DEBUG
 			printf("Cannot read packet from trace, total read pkts num = %d!\n", pkt_num);

@@ -48,8 +48,8 @@ void Exporter::scan_hash_table() {
 		// did this examination comsume much cpu resource ?
 		if( this->get_exit_signal() ) {
 			// export all records in hash table when received exit signal;
-#if 0
-			export_timeout_flows( fileWriter, 0 );
+#if 1
+			export_timeout_flows( 0 );
 			index->readCode = (index->indexFlag);
 			pthread_mutex_unlock( &(index->queueLock) );
 #ifdef DEBUG
@@ -81,12 +81,16 @@ void Exporter::scan_hash_table() {
 			pthread_exit(0);
 		}
 
-		export_timeout_flows();
+		printf("start exporting timeout flows, exporter size = %d\n", totalRecordNum);
+		if( totalRecordNum > POOL_PACKETS_UPBOUNDER ) 
+			export_timeout_flows( 5 );
+		else export_timeout_flows();
 		index->readCode = (index->indexFlag);
 		pthread_mutex_unlock( &(index->queueLock) );
 #ifdef DEBUG
 		printf("%d packets need to be export!\n", index->linkNodePool.size());
 #endif
+		fflush( stdout );
 		pthread_cond_broadcast( &(index->fullCond) );
 
 		/*
@@ -94,7 +98,7 @@ void Exporter::scan_hash_table() {
 		if( totalRecordNum == 0 ) {
 			pthread_testcancel();
 		}
-		*/;
+		*/
 		sleep( SCAN_INTERVAL );
 	}
 }
@@ -106,9 +110,19 @@ Exporter::Exporter( const string & name, Collector &c, DBHandle *db ) : collecto
 		packet_num[i] = pair<int,int>( 0 , i );
 		pthread_mutex_init( &bucket_mutex[i] , NULL );
 	}
-	index = new Index( SRCIP|DSTIP );
-	pthread_create( &scanThread, NULL, scan_thread_start, this);
-	
+	//index = new Index( SRCIP|DSTIP );
+	index = new Index( SRCIP|DSTIP|SPORT|DPORT );
+
+	// set the attribute of scanning thread.
+	pthread_attr_t attr;
+	struct sched_param param;
+	pthread_attr_init(&attr);
+	pthread_attr_setschedpolicy(&attr, SCHED_RR);
+	param.sched_priority = 20;
+	pthread_attr_setschedparam(&attr, &param);
+	pthread_create( &scanThread, &attr, scan_thread_start, this);
+	pthread_attr_destroy(&attr);
+
 	// initialization for exit-signal
 	exit_signal = false;
 	pthread_mutex_init( &signal_mutex, NULL );
@@ -165,10 +179,8 @@ int	Exporter::push_record( RECORD * rec ) {
 	}
 
 	pthread_mutex_lock( &bucket_mutex[ bucketID ] );
-
 	uint16_t	pktLen = rec->get_packet_length();
 	packet_num[ bucketID ].first++;
-	// TODO:thread synchronization
 	if( hash_table[bucketID] == NULL ) {
 		hash_table[bucketID] = current;
 		current->tail = current;
@@ -183,12 +195,19 @@ int	Exporter::push_record( RECORD * rec ) {
 		bool flag = false;
 		int  step = 1;
 		for( ptr = hash_table[bucketID] ; ptr ; ptr = ptr->nextlink, ++step ) {
-			if( (*(ptr->data)).equals( rec ) ) {
-				ptr->tail->nextdata = current;
-				ptr->tail = current;
-				ptr->data->inc_file_offset( pktLen );
-				flag = true;
-				break;
+			if( ptr->data->equals( rec ) ) {
+				if( ptr->data->get_file_offset() + pktLen <= CUTOFF ) {
+					ptr->tail->nextdata = current;
+					ptr->tail = current;
+					ptr->data->inc_file_offset( pktLen );
+					flag = true;
+					break;
+				} else {
+					// this packet is cutoff
+					collector.set_resource_free(rec->get_packet_pointer());
+					pthread_mutex_unlock( &bucket_mutex[bucketID] );
+					return 0;		
+				}
 			}
 		}
 
@@ -203,7 +222,6 @@ int	Exporter::push_record( RECORD * rec ) {
 			// if this packet is the first packet of some flow
 			current->tail = current;
 			current->nextlink = tmp;
-			current->data->inc_file_offset( pktLen );
 			hash_table[bucketID] = current;
 
 			assert( current->tail->data != NULL );
@@ -238,7 +256,6 @@ int	Exporter::push_record( RECORD * rec ) {
 	   }
 	   */
 	pthread_mutex_unlock( &bucket_mutex[bucketID] );
-
 	return 0;
 }
 
@@ -251,6 +268,9 @@ void 	Exporter::export_chain( LinkNode * chain, FileWriter * file_handle ) {
 
 	uint32_t fileOffset = 0; 
 	LinkNode *ptr = chain;
+	FILE *fp = fopen("flows.txt","ab+");
+	ptr->data->write2file( fp );
+	fclose(fp);
 
 	while( chain != NULL ) {
 		chain = ptr->nextdata;
@@ -263,7 +283,6 @@ void 	Exporter::export_chain( LinkNode * chain, FileWriter * file_handle ) {
 			file_handle->write_file( ptr->data->get_packet_buffer(), ptr->data->get_packet_length() );
 		}
 #endif
-		
 		// the end of this chain
 		if( chain == NULL ) {
 			ptr->data->set_file_offset( fileOffset );
@@ -319,7 +338,7 @@ void  Exporter::export_timeout_flows(int timeout) {
 			//if( tv.tv_sec - ptr->tail->data->get_time_second() >= FLOW_TIMEOUT ) {
 			if( tv.tv_sec - ptr->data->get_time_second() >= timeout ) {
 				// current file could store all packets of this flow or not ?
-				if( fileWriter->get_file_size() + ptr->data->get_file_offset() >= MAX_FILE_SIZE ) {
+				if( fileWriter->get_file_size() + ptr->data->get_file_offset() > MAX_FILE_SIZE ) {
 					file_is_full = true;
 					break;
 				}
@@ -327,12 +346,14 @@ void  Exporter::export_timeout_flows(int timeout) {
 				if( ptr == hash_table[i] ) {
 					hash_table[i] = ptr->nextlink;
 				} else {
+					/*
 					if( pre == NULL ) {
 						printf("ptr = %p, hash_table[i] = %p\n", ptr, hash_table[i] );
 						for( LinkNode *iter = hash_table[i]; iter ; iter = iter->nextlink) {
 							printf("%p ",iter);
 						}
 					}
+					*/
 					assert( pre != NULL );
 					pre->nextlink = ptr->nextlink;
 				}

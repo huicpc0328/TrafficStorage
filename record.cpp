@@ -1,39 +1,40 @@
 #include "record.h"
 #include <cstdio>
+#include <arpa/inet.h>
 
 using libtrace::IPV4HEADER;
 using libtrace::IPV6HEADER;
+
+Record::Record( PACKET* pkt ): packet( pkt ) {
+	assert( pkt );
+	tv = trace_get_timeval( packet );
+	file_offset = trace_get_capture_length( packet );;
+}
 
 void Record::set_file_name(std::string s ){
 	file_name = s;
 }
 
-void Ipv4Record::set_srcip() {
-	IPV4HEADER *ipheader = trace_get_ip(packet);
-	if( ipheader != NULL ) {
-		srcip = ipheader->ip_src;
-	}
-}
-
-void Ipv4Record::set_dstip() {
-	IPV4HEADER *ipheader = trace_get_ip(packet);
-	if( ipheader != NULL ) {
-		dstip = ipheader->ip_dst;
-	}
-}
-
-void Ipv4Record::set_srcport() {
-	srcport = trace_get_source_port(packet);
-}
-
-void Ipv4Record::set_dstport() {
-	dstport = trace_get_destination_port( packet );
-}
-
-void Ipv4Record::set_proto() {
+Ipv4Record::Ipv4Record( PACKET* pkt ): Record( pkt ) {
+	uint16_t ethertype;
 	uint32_t remaining;
+	IPV4HEADER *ipheader = (IPV4HEADER*)trace_get_layer3( packet , &ethertype, &remaining );
+	assert( ethertype == TRACE_ETHERTYPE_IP );
+	assert( ipheader );
+	srcip = ipheader->ip_src;
+	dstip = ipheader->ip_dst;
+	srcport = trace_get_source_port(packet); 
+ 	dstport = trace_get_destination_port( packet );
 	void *tmp = trace_get_transport(packet, &proto, &remaining );
 	if( tmp == NULL || remaining == 0 ) proto = 0;
+}
+
+void Ipv4Record::write2file(FILE * fp){
+	uint32_t sip = get_srcip();
+	uint32_t dip = get_dstip();
+	fprintf( fp, "%u,%u,%u,%u,%u,%u,%u,%u,",\
+			BYTE1(sip),BYTE2(sip),BYTE3(sip),BYTE4(sip),BYTE1(dip),BYTE2(dip),BYTE3(dip),BYTE4(dip));
+	fprintf( fp, "%u,%u,%u\n",get_sport(),get_dport(),get_proto() );
 }
 
 uint32_t Ipv4Record::hash() {
@@ -63,33 +64,17 @@ void Ipv4Record::display() {
 }
 
 
-void Ipv6Record::set_srcip() {
-	IPV6HEADER* ipv6 = trace_get_ip6( packet );
-	if( ipv6 != NULL ) {
-		srcip6 = ipv6->ip_src;
-	}
-}
-
-void Ipv6Record::set_dstip() {
-	IPV6HEADER* ipv6 = trace_get_ip6( packet );
-	if( ipv6 != NULL ) {
-		dstip6 = ipv6->ip_dst;
-	}
-}
-
-void Ipv6Record::set_proto() {
-	IPV6HEADER* ipv6 = trace_get_ip6( packet );
-	if( ipv6 != NULL ) {
-		proto = ipv6->nxt;
-	}
-}
-
-void Ipv6Record::set_srcport() {
-	srcport = trace_get_source_port(packet);
-}
-
-void Ipv6Record::set_dstport() {
-	dstport = trace_get_destination_port( packet );
+Ipv6Record::Ipv6Record( PACKET* pkt ): Record( pkt ) {
+	uint16_t ethertype;
+	uint32_t remaining;
+	IPV6HEADER* ipv6 = (IPV6HEADER*)trace_get_layer3( packet , &ethertype, &remaining );
+	assert( ipv6 );
+	assert( ethertype == TRACE_ETHERTYPE_IPV6 );
+	dstip6 = ipv6->ip_dst;
+	srcip6 = ipv6->ip_src;
+	proto = ipv6->nxt;
+	srcport = trace_get_source_port(packet); 
+ 	dstport = trace_get_destination_port( packet );
 }
 
 uint32_t Ipv6Record::hash() {

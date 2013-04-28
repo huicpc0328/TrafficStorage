@@ -26,7 +26,6 @@ public:
 	inline  pthread_t get_thread() {
 		return workThread;
 	}
-	void 	start();        /* set up the thread */
 	friend  void * thread_func( void * );
 	void 	packet_process();
 	void 	process_ethernet( PACKET *); /* process ethernet packets*/

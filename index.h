@@ -15,7 +15,11 @@
 
 #include <pthread.h>
 #include <vector>
+#ifdef BTREE
 #include "util/btree.h"
+#else 
+#include "util/trie.h"
+#endif
 #include "resourcePool.h"
 #include "record.h"
 using std::vector;
@@ -30,11 +34,54 @@ enum INDEXCODE {
 
 static void *index_thread_start( void *) ;
 
+// used as an interface
+template<typename KEY>
+class IndexBase {
+	protected:
+	typedef uint32_t VALUE;
+	typedef LinkList<VALUE>* RESULT;
+#ifdef BTREE
+	BTree<KEY,VALUE>*       index;
+#else
+	Trie<KEY>*			    index;
+#endif
+
+	public:
+	IndexBase() {
+#ifdef BTREE
+		index = new BTree<KEY,VALUE>();
+#else
+		index = new Trie<KEY>();
+#endif
+	}
+	~IndexBase() {
+		if( index ) delete index;
+	}
+
+	inline int addItem( const KEY& key, const VALUE& value ) {
+		return index->addItem( key, value );
+	}
+
+	inline int write2file( const char *fileName ) {
+		return index->write2file( fileName );
+	}
+
+	inline RESULT queryFromFile( const char *file, const KEY& b, const KEY& e ) {
+		return index->queryFromFile( file, b, e );
+	}
+
+	inline int readFromFile( const char * fileName ) {
+		return index->readFromFile( fileName );
+	}
+};
+
+
+
 class Index {
-	BTree<uint32_t,uint32_t>* 	sipIndex;
-	BTree<uint32_t,uint32_t>* 	dipIndex;
-	BTree<uint16_t,uint32_t>* 	sportIndex;
-	BTree<uint16_t,uint32_t>* 	dportIndex;
+	IndexBase<uint32_t>*	sipIndex;
+	IndexBase<uint32_t>*	dipIndex;
+	IndexBase<uint16_t>*	sportIndex;
+	IndexBase<uint16_t>*	dportIndex;
 
 	ResourcePool<Record*,1000000>	linkNodePool;
 	uint16_t					indexFlag; // represent which fileds should be indexed
@@ -67,7 +114,7 @@ class Index {
 		pthread_mutex_unlock( &exit_mutex );
 	}
 	
-	void addPkt( INDEXCODE code );
+	void buildIndex( INDEXCODE code );
 
 	void clear_linkNodePool() ;
 

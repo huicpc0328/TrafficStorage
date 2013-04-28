@@ -12,7 +12,17 @@ extern	Exporter<1024> arp_exporter;
 extern	Exporter ipv6_exporter;
 */
 
-Parser::Parser( Collector &c ): collector(c){}
+
+void * thread_func( void * ptr) {
+	int state = PTHREAD_CANCEL_DEFERRED, oldstate ;
+	pthread_setcanceltype( state, &oldstate );
+	Parser * parser = ( Parser * )ptr;
+	parser->packet_process();
+}
+
+Parser::Parser( Collector &c ): collector(c){
+	pthread_create( &workThread, NULL, thread_func, this);
+}
 
 Parser::Parser( const Parser& parser ): collector(parser.collector) {
 	workThread = parser.workThread;
@@ -22,17 +32,6 @@ Parser::~Parser(){
 	pthread_cancel( workThread );
 }
 
-
-void * thread_func( void * ptr) {
-	int state = PTHREAD_CANCEL_DEFERRED, oldstate ;
-	pthread_setcanceltype( state, &oldstate );
-	Parser * parser = ( Parser * )ptr;
-	parser->packet_process();
-}
-
-void Parser::start() {
-	pthread_create( &workThread, NULL, thread_func, this);
-}
 
 void Parser::packet_process() {
 /*

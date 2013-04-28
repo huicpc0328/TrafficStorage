@@ -24,10 +24,10 @@
 #include "perfMeasure.h"
 #endif
 
-#define 	SCAN_INTERVAL 		1       /* how long to scan hash_table and export packets, unit: second */
-#define		FLOW_TIMEOUT		10		/*  3 minutes */
-#define		MAX_FILE_PACKETS	1024	/* max packets number per file stored */
+#define 	SCAN_INTERVAL 		3     /* how long to scan hash_table and export packets, unit: second */
+#define		FLOW_TIMEOUT		20		/*  3 minutes */
 #define		BUCKETSIZE			999983	
+#define		CUTOFF				1024*1024*1024  // just keep 20k size in file for each flow
 
 typedef Record RECORD;
 

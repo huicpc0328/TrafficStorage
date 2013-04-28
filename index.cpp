@@ -3,8 +3,7 @@
 #include <utility>
 #include <stdio.h>
 
-#define DEBUG
-
+using std::pair;
 typedef pair<uint16_t,Index *> UIPAIR;
 
 const char * INDEX_FILE_SUFFIX = ".idx";
@@ -26,14 +25,14 @@ static void *index_thread_start( void * arg) {
 
 		while( !(code & (index->readCode ) )) {
 			pthread_cond_wait( &(index->fullCond), &(index->queueLock));
-			printf("thread whose code is %d received a signal, readCode=%d!\n", code,index->readCode );
+			//printf("thread whose code is %d received a signal, readCode=%d!\n", code,index->readCode );
 		}
 
 #ifdef DEBUG
 		printf("Thread %d has code %d readCode = %u\n", pthread_self(), code, index->readCode );
 #endif
 		pthread_mutex_unlock( &(index->queueLock) );
-		index->addPkt( code );
+		index->buildIndex( code );
 
 		pthread_mutex_lock( &(index->queueLock));
 		(index->readCode) ^= code;
@@ -70,7 +69,7 @@ Index::Index( uint16_t flag ): indexFlag(flag) {
 	pthread_mutex_init( &exit_mutex, NULL );
 
 	if( flag & SRCIP ) {
-		sipIndex = new BTree<uint32_t,uint32_t>();
+		sipIndex = new IndexBase<uint32_t>();
 		pthread_t	tid;
 		// this memory should be delete in function index_thread_start
 		// why we did it in this way because the local stack memory may be not
@@ -85,7 +84,7 @@ Index::Index( uint16_t flag ): indexFlag(flag) {
 	}
 
 	if( flag & DSTIP ) {
-		dipIndex = new BTree<uint32_t,uint32_t>();
+		dipIndex = new IndexBase<uint32_t>();
 		pthread_t	tid;
 		// this memory should be delete in function index_thread_start
 		UIPAIR 	*uipair = new UIPAIR(DSTIP,this);
@@ -98,7 +97,7 @@ Index::Index( uint16_t flag ): indexFlag(flag) {
 	}
 
 	if( flag & SPORT ) {
-		sportIndex = new BTree<uint16_t,uint32_t>();
+		sportIndex = new IndexBase<uint16_t>();
 		pthread_t	tid;
 		// this memory should be delete in function index_thread_start
 		UIPAIR 	*uipair = new UIPAIR(SPORT,this);
@@ -111,7 +110,7 @@ Index::Index( uint16_t flag ): indexFlag(flag) {
 	}
 
 	if( flag & DPORT ) {
-		dportIndex = new BTree<uint16_t,uint32_t>();
+		dportIndex = new IndexBase<uint16_t>();
 		pthread_t	tid;
 		// this memory should be delete in function index_thread_start
 		UIPAIR 	*uipair = new UIPAIR(DPORT,this);
@@ -146,7 +145,7 @@ Index::~Index() {
 	}
 }
 
-void Index::addPkt(INDEXCODE code) {
+void Index::buildIndex(INDEXCODE code) {
 	Ipv4Record* cur = NULL;
 	// cur->pktLen represent the start position in file of this flow-packets
 	switch( code ) {
@@ -174,7 +173,7 @@ void Index::addPkt(INDEXCODE code) {
 		case DPORT: {
 			for( int i = 0 ; i < linkNodePool.size(); ++i) {
 				cur = (Ipv4Record*)linkNodePool.get_resource(i);
-				sportIndex->addItem( cur->get_sport(), cur->get_file_offset() );
+				dportIndex->addItem( cur->get_dport(), cur->get_file_offset() );
 			}
 			break;
 		}
@@ -191,7 +190,7 @@ void Index::write_index_to_file( uint16_t fileID ) {
 				FileManager::get_directory_name().c_str(),fileID,INDEX_FILE_SUFFIX );	
 		sipIndex->write2file( fileName );
 		delete sipIndex;
-		sipIndex = new BTree<uint32_t,uint32_t>();
+		sipIndex = new IndexBase<uint32_t>();
 	}
 
 	if( indexFlag & DSTIP ) {
@@ -199,7 +198,7 @@ void Index::write_index_to_file( uint16_t fileID ) {
 				FileManager::get_directory_name().c_str(),fileID,INDEX_FILE_SUFFIX );	
 		dipIndex->write2file( fileName );
 		delete dipIndex;
-		dipIndex = new BTree<uint32_t,uint32_t>();
+		dipIndex = new IndexBase<uint32_t>();
 	}
 
 	if( indexFlag & SPORT ) {
@@ -207,7 +206,7 @@ void Index::write_index_to_file( uint16_t fileID ) {
 				FileManager::get_directory_name().c_str(),fileID,INDEX_FILE_SUFFIX );	
 		sportIndex->write2file( fileName );
 		delete sportIndex;
-		sportIndex = new BTree<uint16_t,uint32_t>();
+		sportIndex = new IndexBase<uint16_t>();
 	}
 
 	if( indexFlag & DPORT ) {
@@ -215,7 +214,7 @@ void Index::write_index_to_file( uint16_t fileID ) {
 				FileManager::get_directory_name().c_str(),fileID,INDEX_FILE_SUFFIX );	
 		dportIndex->write2file( fileName );
 		delete dportIndex;
-		dportIndex = new BTree<uint16_t,uint32_t>();
+		dportIndex = new IndexBase<uint16_t>();
 	}
 }
 

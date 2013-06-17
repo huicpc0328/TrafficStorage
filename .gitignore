@@ -2,4 +2,16 @@
 *.o
 *.pcap
 *.txt
+*.tx
+*.idx
+*.out
+*.scan
+*.log
+*.status
+*.cache*
+*.m4
+*.am
+*.in
+*data*
+*test*
 
